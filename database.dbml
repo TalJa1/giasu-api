@@ -1,0 +1,131 @@
+// Database for GiaSu API - Learning Management System
+Project project_name {
+  database_type: 'SQLite'
+  Note: '''
+    GiaSu Learning Management System Database
+    Supports users, learning resources, tests, and university recommendations
+  '''
+}
+
+// Users table - Core user management
+Table Users {
+  id integer [primary key, increment]
+  username text [not null, unique]
+  email text [not null, unique]
+  password_hash text [not null]
+  full_name text
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Core user management table storing authentication and profile data'
+}
+
+// Learning Resources table - Documents and Flashcards
+Table LearningResources {
+  id integer [primary key, increment]
+  user_id integer [not null, ref: > Users.id]
+  title text [not null]
+  type text [not null, note: 'document or flashcard']
+  content text
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Stores learning materials including documents and flashcards'
+}
+
+// Tests table - Quiz/Test definitions
+Table Tests {
+  id integer [primary key, increment]
+  title text [not null]
+  description text
+  created_by integer [ref: > Users.id]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Test and quiz definitions created by users'
+}
+
+// Test Questions table - Individual questions for tests
+Table TestQuestions {
+  id integer [primary key, increment]
+  test_id integer [not null, ref: > Tests.id]
+  question_text text [not null]
+  option_a text
+  option_b text
+  option_c text
+  option_d text
+  correct_option char(1)
+  
+  Note: 'Multiple choice questions for tests with 4 options (A,B,C,D)'
+}
+
+// User Test Results table - Track user performance
+Table UserTestResults {
+  id integer [primary key, increment]
+  user_id integer [not null, ref: > Users.id]
+  test_id integer [not null, ref: > Tests.id]
+  score real
+  taken_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'Records of user test attempts and scores'
+}
+
+// Universities table - University data
+Table Universities {
+  id integer [primary key, increment]
+  name text [not null]
+  location text
+  type text
+  description text
+  
+  Note: 'Master list of universities for recommendations'
+}
+
+// University Scores table - Historical admission data
+Table UniversityScores {
+  id integer [primary key, increment]
+  university_id integer [not null, ref: > Universities.id]
+  year integer [not null]
+  min_score real
+  avg_score real
+  max_score real
+  
+  Note: 'Historical admission scores by year for each university'
+}
+
+// User Preferences table - Recommendation preferences
+Table UserPreferences {
+  id integer [primary key, increment]
+  user_id integer [not null, ref: > Users.id]
+  preferred_major text
+  expected_score real
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'User preferences for university recommendations'
+}
+
+// University Recommendations table - Generated recommendations
+Table UniversityRecommendations {
+  id integer [primary key, increment]
+  user_id integer [not null, ref: > Users.id]
+  university_id integer [not null, ref: > Universities.id]
+  recommended_at datetime [default: `CURRENT_TIMESTAMP`]
+  
+  Note: 'System-generated university recommendations for users'
+}
+
+// Table Groups for better organization
+TableGroup user_management {
+  Users
+  UserPreferences
+}
+
+TableGroup learning_content {
+  LearningResources
+  Tests
+  TestQuestions
+  UserTestResults
+}
+
+TableGroup university_system {
+  Universities
+  UniversityScores
+  UniversityRecommendations
+}
