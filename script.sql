@@ -15,6 +15,7 @@ CREATE TABLE LearningResources (
     title TEXT NOT NULL,
     type TEXT CHECK(type IN ('document','flashcard')) NOT NULL,
     content TEXT,
+    content_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id)
 );
@@ -48,9 +49,23 @@ CREATE TABLE UserTestResults (
     user_id INTEGER NOT NULL,
     test_id INTEGER NOT NULL,
     score REAL,
+    total_questions INTEGER,
+    correct_answers INTEGER,
     taken_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users(id),
     FOREIGN KEY (test_id) REFERENCES Tests(id)
+);
+
+-- User question answers table - stores individual answers for review
+CREATE TABLE UserQuestionAnswers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    test_result_id INTEGER NOT NULL,
+    question_id INTEGER NOT NULL,
+    user_answer CHAR(1),
+    is_correct BOOLEAN DEFAULT FALSE,
+    answered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (test_result_id) REFERENCES UserTestResults(id),
+    FOREIGN KEY (question_id) REFERENCES TestQuestions(id)
 );
 
 -- Universities table
