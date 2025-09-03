@@ -164,3 +164,13 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(db_user)
     await db.commit()
     return {"detail": "User deleted successfully"}
+
+
+@router.get("/email/{email}", response_model=UserResponse)
+async def get_user_by_email(email: str, db: AsyncSession = Depends(get_db)):
+    """Get a specific user by email"""
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalars().first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
