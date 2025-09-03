@@ -5,8 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from database import Base, engine
 
-# from routes import (
-# )
+from routes.userRoute import router as user_router
 import logging
 from contextlib import asynccontextmanager
 
@@ -55,3 +54,4 @@ class FilterParams(BaseModel):
 
 
 # app.include_router(Reset_DBRoute.router, prefix="/api/v1", tags=["reset-db"])
+app.include_router(user_router, prefix="/api/v1", tags=["users"])

@@ -12,9 +12,7 @@ Table Users {
   id integer [primary key, increment]
   username text [not null, unique]
   email text [not null, unique]
-  password_hash text [not null]
-  full_name text
-  created_at datetime [default: `CURRENT_TIMESTAMP`]
+  image_url text
   
   Note: 'Core user management table storing authentication and profile data'
 }
@@ -110,6 +108,7 @@ Table UserPreferences {
   id integer [primary key, increment]
   user_id integer [not null, ref: > Users.id]
   preferred_major text
+  current_score real
   expected_score real
   created_at datetime [default: `CURRENT_TIMESTAMP`]
   

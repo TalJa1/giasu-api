@@ -28,3 +28,10 @@ async def get_db():
             raise
         finally:
             await session.close()
+
+
+# Import models here to ensure they are registered with SQLAlchemy
+try:
+    from routes.userRoute import User
+except ImportError:
+    pass
