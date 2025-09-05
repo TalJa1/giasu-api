@@ -8,12 +8,14 @@ from sqlalchemy import (
     ForeignKey,
     select,
     text,
+    Boolean,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import func
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List
+from datetime import datetime
 from database import Base, get_db
 
 
@@ -37,11 +39,8 @@ class LessonTracking(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("Users.id"), nullable=False)
     lesson_id = Column(Integer, ForeignKey("Lessons.id"), nullable=False)
-    progress = Column(Float, default=0.0)
-    status = Column(String, default="not_started")
-    started_at = Column(DateTime)
-    last_accessed = Column(DateTime, server_default=func.now())
-    completed_at = Column(DateTime)
+    is_finished = Column(Boolean, default=False)
+    created_at = Column(DateTime, server_default=func.now())
 
 
 # Pydantic schemas
@@ -68,6 +67,7 @@ class LessonUpdate(BaseModel):
 class LessonResponse(LessonBase):
     id: int
     created_by: Optional[int] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -76,8 +76,7 @@ class LessonResponse(LessonBase):
 class LessonTrackingBase(BaseModel):
     user_id: int
     lesson_id: int
-    progress: Optional[float] = 0.0
-    status: Optional[str] = "not_started"
+    is_finished: Optional[bool] = False
 
 
 class LessonTrackingCreate(LessonTrackingBase):
@@ -85,12 +84,12 @@ class LessonTrackingCreate(LessonTrackingBase):
 
 
 class LessonTrackingUpdate(BaseModel):
-    progress: Optional[float] = None
-    status: Optional[str] = None
+    is_finished: Optional[bool] = None
 
 
 class LessonTrackingResponse(LessonTrackingBase):
     id: int
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -224,6 +223,21 @@ async def get_tracking(tracking_id: int, db: AsyncSession = Depends(get_db)):
     if item is None:
         raise HTTPException(status_code=404, detail="Tracking entry not found")
     return item
+
+
+@tracking_router.get("/user/{user_id}", response_model=List[LessonTrackingResponse])
+async def get_tracking_by_user(
+    user_id: int, skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db)
+):
+    """Return all tracking entries for a given user id (paginated)."""
+    result = await db.execute(
+        select(LessonTracking)
+        .where(LessonTracking.user_id == user_id)
+        .offset(skip)
+        .limit(limit)
+    )
+    items = result.scalars().all()
+    return items
 
 
 @tracking_router.put("/{tracking_id}", response_model=LessonTrackingResponse)

@@ -7,6 +7,7 @@ from database import Base, engine
 from routes.userRoute import router as user_router
 from routes.resetRoute import router as reset_router
 from routes.userPreferencesRoute import router as user_prefs_router
+from routes.lessonRoute import router as lesson_router
 import logging
 from contextlib import asynccontextmanager
 
@@ -58,3 +59,4 @@ class FilterParams(BaseModel):
 app.include_router(reset_router, prefix="/api/v1", tags=["reset"])
 app.include_router(user_router, prefix="/api/v1", tags=["users"])
 app.include_router(user_prefs_router, prefix="/api/v1", tags=["user-preferences"])
+app.include_router(lesson_router, prefix="/api/v1", tags=["lessons"])
