@@ -35,3 +35,8 @@ try:
     from routes.userRoute import User
 except ImportError:
     pass
+try:
+    # Import lesson models so they're registered with SQLAlchemy metadata
+    from routes.lessonRoute import Lesson, LessonTracking  # noqa: F401
+except ImportError:
+    pass

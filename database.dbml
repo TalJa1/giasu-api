@@ -3,7 +3,7 @@ Project GiaSu_LMS {
   database_type: 'SQLite'
   Note: '''
     GiaSu Learning Management System Database
-    Supports users, learning resources, tests with detailed answer tracking, and university recommendations
+  Supports users, lessons, lesson tracking, tests with detailed answer tracking, and university recommendations
   '''
 }
 
@@ -13,21 +13,34 @@ Table Users {
   username text [not null, unique]
   email text [not null, unique]
   image_url text
+  role text [default: 'student', note: "'student' or 'tutor'"]
   
   Note: 'Core user management table storing authentication and profile data'
 }
 
-// Learning Resources table - Documents and Flashcards
-Table LearningResources {
+// Lessons table - Documents, flashcards, videos and other lesson content
+Table Lessons {
+  id integer [primary key, increment]
+  title text [not null]
+  description text
+  content text
+  subject text
+  content_url text
+  created_by integer [ref: > Users.id]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Stores lesson materials including documents, flashcards, and multimedia created by users'
+}
+
+// LessonTracking table - tracks user progress on lessons
+Table LessonTracking {
   id integer [primary key, increment]
   user_id integer [not null, ref: > Users.id]
-  title text [not null]
-  type text [not null, note: 'CHECK: document or flashcard']
-  content text
-  content_url text
+  lesson_id integer [not null, ref: > Lessons.id]
+  is_finished boolean [default: false]
   created_at datetime [default: `CURRENT_TIMESTAMP`]
-  
-  Note: 'Stores learning materials including documents and flashcards created by users'
+
+  Note: 'Tracks user progress, status, and timestamps for individual lessons'
 }
 
 // Tests table - Quiz/Test definitions
@@ -126,7 +139,6 @@ Table UniversityRecommendations {
 }
 
 // Relationships visualization
-Ref: LearningResources.user_id > Users.id [delete: cascade]
 Ref: Tests.created_by > Users.id [delete: set null]
 Ref: TestQuestions.test_id > Tests.id [delete: cascade]
 Ref: UserTestResults.user_id > Users.id [delete: cascade]
@@ -137,6 +149,8 @@ Ref: UniversityScores.university_id > Universities.id [delete: cascade]
 Ref: UserPreferences.user_id > Users.id [delete: cascade]
 Ref: UniversityRecommendations.user_id > Users.id [delete: cascade]
 Ref: UniversityRecommendations.university_id > Universities.id [delete: cascade]
+Ref: LessonTracking.user_id > Users.id [delete: cascade]
+Ref: LessonTracking.lesson_id > Lessons.id [delete: cascade]
 
 // Table Groups for logical organization
 TableGroup user_management {
@@ -145,7 +159,8 @@ TableGroup user_management {
 }
 
 TableGroup learning_content {
-  LearningResources
+  Lessons
+  LessonTracking
   Tests
   TestQuestions
   UserTestResults
