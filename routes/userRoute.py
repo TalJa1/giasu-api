@@ -15,6 +15,7 @@ class User(Base):
     username = Column(String, unique=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     image_url = Column(String, nullable=True)
+    role = Column(String, default="student")  # 'student' or 'tutor'
 
 
 # Pydantic Schemas
@@ -22,6 +23,7 @@ class UserBase(BaseModel):
     username: str
     email: EmailStr
     image_url: Optional[str] = None
+    role: Optional[str] = None
 
 
 class UserCreate(UserBase):
