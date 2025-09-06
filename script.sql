@@ -317,40 +317,7 @@ VALUES (
         'https://example.com/image2.jpg'
     );
 
--- Insert sample data for Lessons table
-INSERT INTO
-    Lessons (
-        title,
-        description,
-        content,
-        content_url,
-        created_by
-    )
-VALUES (
-        'Math Notes',
-        'Comprehensive notes on algebra and geometry',
-        'Algebra basics and formulas',
-        'https://example.com/math.pdf',
-        2
-    ),
-    (
-        'English Vocabulary',
-        'Common English words and their meanings',
-        'Word: Hello - Meaning: Greeting',
-        'https://example.com/english.json',
-        2
-    ),
-    (
-        'Physics Study Guide',
-        'In-depth guide on classical and modern physics',
-        'Newton laws and mechanics',
-        'https://example.com/physics.pdf',
-        2
-    );
-
 -- Insert 10 advanced Mathematics lessons suitable for grade 11+
-
-
 INSERT INTO Lessons (title, description, content, subject, content_url, created_by) VALUES
 ('Complex Numbers and Roots of Unity',
  'Detailed study of complex numbers focusing on modulus, argument, geometric interpretation, De Moivre''s theorem, and roots of unity with problem-solving techniques suitable for advanced high-school students.',
