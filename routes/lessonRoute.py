@@ -132,6 +132,14 @@ async def list_lessons(
     return items
 
 
+@router.get("/count")
+async def count_lessons(db: AsyncSession = Depends(get_db)):
+    """Return total number of lessons in the database."""
+    result = await db.execute(select(func.count(Lesson.id)))
+    count = result.scalar_one()
+    return {"count": count}
+
+
 @router.get("/{lesson_id}", response_model=LessonResponse)
 async def get_lesson(lesson_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Lesson).where(Lesson.id == lesson_id))
