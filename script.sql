@@ -18,7 +18,7 @@ DROP TABLE IF EXISTS UniversityScores;
 DROP TABLE IF EXISTS UserPreferences;
 
 DROP TABLE IF EXISTS UniversityRecommendations;
- 
+
 DROP TABLE IF EXISTS LessonTracking;
 
 -- Users table
@@ -347,6 +347,165 @@ VALUES (
         'https://example.com/physics.pdf',
         2
     );
+
+-- Insert 10 advanced Mathematics lessons suitable for grade 11+
+
+
+INSERT INTO Lessons (title, description, content, subject, content_url, created_by) VALUES
+('Complex Numbers and Roots of Unity',
+ 'Detailed study of complex numbers focusing on modulus, argument, geometric interpretation, De Moivre''s theorem, and roots of unity with problem-solving techniques suitable for advanced high-school students.',
+ '<p><strong>Overview</strong></p>\
+<p>This lesson covers complex numbers as points in the plane, polar representation, and the algebraic properties that allow solving higher-degree equations.</p>\
+<ul>\
+    <li><strong>Polar form:</strong> z = r(cos θ + i sin θ)</li>\
+    <li><strong>De Moivre''s theorem:</strong> z^n = r^n (cos nθ + i sin nθ)</li>\
+    <li><strong>Roots of unity:</strong> solutions to z^n = 1 and their geometric placement on the unit circle</li>\
+</ul>\
+<p><strong>Problems</strong></p>\
+<ol>\
+    <li>Find all complex roots of z^6 = 64 and express them in polar and rectangular forms.</li>\
+    <li>Given two complex numbers, derive the locus of points where |z - a| = k|z - b|.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Root_of_unity', 2),
+
+('Sequences, Limits and Monotonicity',
+ 'Rigorous analysis of sequences: limits, monotonicity, boundedness, subsequences, and classical convergence tests. Includes proofs and challenging tasks involving epsilon-N arguments.',
+ '<p><strong>Content</strong></p>\
+<p>The lesson presents formal definitions of sequence convergence and techniques to prove limits.</p>\
+<ul>\
+    <li><strong>Definition:</strong> limit of a sequence (epsilon-N form)</li>\
+    <li><strong>Monotone convergence theorem:</strong> bounded monotone sequences converge</li>\
+    <li><strong>Techniques:</strong> sandwich theorem, comparison, and induction-based estimates</li>\
+</ul>\
+<p><strong>Example problems</strong></p>\
+<ol>\
+    <li>Show that the sequence a_n = n/(n+1) is increasing/decreasing and find its limit.</li>\
+    <li>Prove or disprove convergence of b_n = (-1)^n + 1/n and analyze subsequences.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Limit_of_a_sequence,https://en.wikipedia.org/wiki/Monotonic_function', 2),
+
+('Infinite Series and Convergence Tests',
+ 'Advanced study of infinite series: absolute vs conditional convergence, ratio and root tests, alternation tests, and rearrangement consequences. Applications to power series expansion are included.',
+ '<p><strong>Summary</strong></p>\
+<p>This lesson explores how to determine convergence of series that appear in advanced problems and contest settings.</p>\
+<ul>\
+    <li><strong>Absolute convergence</strong> and its implications</li>\
+    <li><strong>Alternating series test (Leibniz)</strong></li>\
+    <li><strong>Comparison, ratio, and root tests</strong></li>\
+</ul>\
+<p><strong>Challenging tasks</strong></p>\
+<ol>\
+    <li>Decide convergence of the series ∑_{n=1}^∞ (-1)^{n} / sqrt(n) and justify your answer.</li>\
+    <li>Analyze radius of convergence for ∑ a_n x^n given a_n = n! / n^n.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Series_(mathematics),https://en.wikipedia.org/wiki/Convergence_tests', 2),
+
+('Advanced Trigonometric Identities and Equations',
+ 'Comprehensive coverage of trigonometric identities including sum-to-product, product-to-sum, multiple-angle formulas, and solving non-trivial trigonometric equations with parameter dependence.',
+ '<p><strong>Key topics</strong></p>\
+<ul>\
+    <li>Sum and difference formulas, double and triple angle formulas</li>\
+    <li>Transformations: sum-to-product, product-to-sum</li>\
+    <li>Solving parameterized trigonometric equations and inequalities</li>\
+</ul>\
+<p><strong>Examples</strong></p>\
+<ol>\
+    <li>Solve for x: 2 sin(2x) + sin(x) = 0 on [0, 2π).</li>\
+    <li>Prove that for any real x, sin^2 x + sin^2(x + 2π/3) + sin^2(x + 4π/3) = 3/2.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/List_of_trigonometric_identities,https://en.wikipedia.org/wiki/Trigonometric_functions', 2),
+
+('Definite and Improper Integrals: Techniques and Applications',
+ 'Deep exploration of definite integrals including substitution, integration by parts, improper integrals, and applications to area, volume, and convergence problems.',
+ '<p><strong>Overview</strong></p>\
+<p>Focus on rigorous computation and convergence of improper integrals with applied examples.</p>\
+<ul>\
+    <li>Integration techniques: parts, substitution, trigonometric substitution</li>\
+    <li>Improper integrals: classification and convergence criteria</li>\
+    <li>Applications: arc length, area between curves, solids of revolution</li>\
+</ul>\
+<p><strong>Problems</strong></p>\
+<ol>\
+    <li>Evaluate ∫_0^∞ x^2 e^{-x} dx and justify convergence.</li>\
+    <li>Determine whether ∫_1^∞ 1/(x (ln x)^p) dx converges for p &gt; 0 and find the critical exponent.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Improper_integral,https://proofwiki.org/wiki/Definition:Improper_Integral', 2),
+
+('Vectors in Space and Planes',
+ 'Analytic geometry in three dimensions: vector operations, equations of lines and planes, distances, angles, and intersection problems with rigorous derivations and examples.',
+ '<p><strong>Topics</strong></p>\
+<ul>\
+    <li>Vector operations: dot product, cross product, projection</li>\
+    <li>Equation of a line and plane in parametric and Cartesian forms</li>\
+    <li>Distances between point-line, point-plane, and angle between planes</li>\
+</ul>\
+<p><strong>Sample tasks</strong></p>\
+<ol>\
+    <li>Find intersection line of two non-parallel planes and compute the angle between them.</li>\
+    <li>Compute shortest distance from a point to a given line in space.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Vector_space', 2),
+
+('Conic Sections: Focus-Directrix and Reflective Properties',
+ 'Study of parabola, ellipse, and hyperbola using geometric and analytic definitions, focus-directrix property, eccentricity, and reflective properties used in optics and problem solving.',
+ '<p><strong>Content</strong></p>\
+<ul>\
+    <li>Definitions: conic as locus of points with constant ratio to focus and directrix</li>\
+    <li>Standard equations and transformations</li>\
+    <li>Reflective property proofs and applications</li>\
+</ul>\
+<p><strong>Exercises</strong></p>\
+<ol>\
+    <li>Derive the equation of a conic with given eccentricity and directrix.</li>\
+    <li>Prove the reflective property of the parabola using vector or analytic methods.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Conic_section', 2),
+
+('Inequalities: AM-GM, Cauchy, and Jensen',
+ 'Advanced inequalities and strategies for olympiad-style problems: proof techniques, equality cases, and combining classical inequalities to solve hard problems.',
+ '<p><strong>Core concepts</strong></p>\
+<ul>\
+    <li>Arithmetic mean - Geometric mean inequality and equality conditions</li>\
+    <li>Cauchy-Schwarz inequality and its algebraic and geometric interpretations</li>\
+    <li>Jensen''s inequality for convex functions and applications</li>\
+</ul>\
+<p><strong>Problems</strong></p>\
+<ol>\
+    <li>Use Cauchy-Schwarz to prove (∑ a_i^2)(∑ b_i^2) ≥ (∑ a_i b_i)^2 for real sequences.</li>\
+    <li>Solve: For positive x,y,z with xyz = 1, minimize x + y + z.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/AM%E2%80%93GM_inequality', 2),
+
+('Sequences and Power Series: Uniform Convergence',
+ 'In-depth look at power series, Taylor expansions, and uniform convergence criteria. Emphasis on rigorous justification when interchanging limits and integration or differentiation.',
+ '<p><strong>Material</strong></p>\
+<ul>\
+    <li>Power series center and radius of convergence</li>\
+    <li>Uniform vs pointwise convergence; Weierstrass M-test</li>\
+    <li>Taylor series and remainder estimates</li>\
+</ul>\
+<p><strong>Exercises</strong></p>\
+<ol>\
+    <li>Find radius of convergence for ∑ n^2 x^n and discuss uniform convergence on closed intervals.</li>\
+    <li>Use Taylor''s theorem to estimate the remainder for e^x around 0 up to order 3.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Uniform_convergence', 2),
+
+('Matrices, Determinants and Eigenvalues',
+ 'Fundamental linear algebra with a focus on determinants, eigenvalues, diagonalization, and applications to solving systems and understanding linear transformations at a higher level.',
+ '<p><strong>Topics covered</strong></p>\
+<ul>\
+    <li>Properties of determinants and computation techniques</li>\
+    <li>Eigenvalues and eigenvectors; characteristic polynomial</li>\
+    <li>Diagonalization criteria and applications to repeated iteration problems</li>\
+</ul>\
+<p><strong>Problems</strong></p>\
+<ol>\
+    <li>Compute eigenvalues of a 3x3 matrix with given structure and determine diagonalizability.</li>\
+    <li>Use determinants to prove linear independence in parameterized families.</li>\
+</ol>',
+ 'Mathematics', 'https://en.wikipedia.org/wiki/Determinant,https://en.wikipedia.org/wiki/Eigenvalues_and_eigenvectors', 2)
+;
 
 -- Insert sample data for Tests table
 INSERT INTO
