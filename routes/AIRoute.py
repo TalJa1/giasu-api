@@ -86,6 +86,51 @@ def extract_text(data):
         return str(data)
 
 
+def _clean_json_text(text: str) -> Optional[str]:
+    """Try to extract a JSON array/object from text returned by the model.
+
+    This removes leading 'json' words, code fences, and tries to find the most
+    likely JSON substring (first [..] or first {...}). Returns the substring
+    or None if not found/parsable.
+    """
+    if not isinstance(text, str):
+        return None
+    s = text.strip()
+    # remove common code fence wrappers
+    # ```json ... ``` or ``` ... ```
+    if s.startswith("```") and s.endswith("```"):
+        # strip fences
+        s = s[3:-3].strip()
+    # remove leading 'json' token if present on its own line
+    if s.lower().startswith("json\n"):
+        s = s.split("\n", 1)[1].strip()
+    if s.lower().startswith("json "):
+        s = s.split(" ", 1)[1].strip()
+
+    # try to find a JSON array first
+    try:
+        # find first '[' and last ']' and attempt to parse
+        start = s.find("[")
+        end = s.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            candidate = s[start : end + 1]
+            return candidate
+    except Exception:
+        pass
+
+    # fallback: try to find a JSON object
+    try:
+        start = s.find("{")
+        end = s.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            candidate = s[start : end + 1]
+            return candidate
+    except Exception:
+        pass
+
+    return None
+
+
 @router.post("/generate", response_model=AIGenerateResponse)
 async def generate_text(
     req: AIGenerateRequest,
@@ -216,27 +261,29 @@ async def recommend_universities(req: UniRequest):
 
     data = await _call_gemini_with_prompt(instruction)
 
-    # Try to extract a textual output and parse as JSON
+    # Try to extract a textual output and parse JSON from it
     text = extract_text(data)
-    # Attempt to find JSON in text
-    try:
-        # If the model returned plain JSON, parse it
-        candidates = json.loads(text)
-        if isinstance(candidates, list):
-            result = []
-            for item in candidates[: req.limit]:
-                if isinstance(item, dict):
-                    result.append(
-                        UniRecommendation(
-                            name=item.get("name", ""),
-                            reason=item.get("reason"),
-                            score=item.get("score"),
+
+    # Attempt to clean common wrappers (```, 'json') and extract JSON substring
+    candidate = _clean_json_text(text)
+    if candidate:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, list):
+                result = []
+                for item in parsed[: req.limit]:
+                    if isinstance(item, dict):
+                        result.append(
+                            UniRecommendation(
+                                name=item.get("name", ""),
+                                reason=item.get("reason"),
+                                score=item.get("score"),
+                            )
                         )
-                    )
-            return result
-    except Exception:
-        # fallthrough
-        pass
+                return result
+        except Exception:
+            # parsing failed; fall through to raw-text fallback
+            pass
 
     # If parsing failed, return a single recommendation with raw text as reason
     return [UniRecommendation(name="AI output", reason=text, score=None)]
