@@ -10,6 +10,7 @@ from routes.userPreferencesRoute import router as user_prefs_router
 from routes.lessonRoute import router as lesson_router
 from routes.AIRoute import router as airouter
 from routes.universityRoute import router as university_router
+from routes.quizletRoute import router as quizlet_router
 import logging
 from contextlib import asynccontextmanager
 
@@ -64,3 +65,4 @@ app.include_router(user_router, prefix="/api/v1", tags=["users"])
 app.include_router(user_prefs_router, prefix="/api/v1", tags=["user-preferences"])
 app.include_router(lesson_router, prefix="/api/v1", tags=["lessons"])
 app.include_router(university_router, prefix="/api/v1", tags=["universities"])
+app.include_router(quizlet_router, prefix="/api/v1", tags=["quizlets"])
