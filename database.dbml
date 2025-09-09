@@ -151,6 +151,20 @@ Ref: UniversityRecommendations.user_id > Users.id [delete: cascade]
 Ref: UniversityRecommendations.university_id > Universities.id [delete: cascade]
 Ref: LessonTracking.user_id > Users.id [delete: cascade]
 Ref: LessonTracking.lesson_id > Lessons.id [delete: cascade]
+Ref: Lessons.created_by > Users.id [delete: set null]
+
+// Quizlet table - simple Q&A flashcards linked to lessons
+Table Quizlet {
+  id integer [primary key, increment]
+  lesson_id integer [not null, ref: > Lessons.id]
+  question text [not null]
+  answer text [not null]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+
+  Note: 'Simple flashcard-style question and answer pairs connected to a lesson'
+}
+
+Ref: Quizlet.lesson_id > Lessons.id [delete: cascade]
 
 // Table Groups for logical organization
 TableGroup user_management {
@@ -161,6 +175,7 @@ TableGroup user_management {
 TableGroup learning_content {
   Lessons
   LessonTracking
+  Quizlet
   Tests
   TestQuestions
   UserTestResults

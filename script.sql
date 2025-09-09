@@ -21,6 +21,8 @@ DROP TABLE IF EXISTS UniversityRecommendations;
 
 DROP TABLE IF EXISTS LessonTracking;
 
+DROP TABLE IF EXISTS Quizlet;
+
 -- Users table
 CREATE TABLE Users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,6 +142,16 @@ CREATE TABLE LessonTracking (
     is_finished BOOLEAN DEFAULT FALSE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users (id),
+    FOREIGN KEY (lesson_id) REFERENCES Lessons (id)
+);
+
+-- Quizlet table - stores simple question & answer pairs linked to a lesson
+CREATE TABLE Quizlet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lesson_id INTEGER NOT NULL,
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (lesson_id) REFERENCES Lessons (id)
 );
 
@@ -318,6 +330,7 @@ VALUES (
     );
 
 -- Insert 10 advanced Mathematics lessons suitable for grade 11+
+
 INSERT INTO Lessons (title, description, content, subject, content_url, created_by) VALUES
 ('Complex Numbers and Roots of Unity',
  'Detailed study of complex numbers focusing on modulus, argument, geometric interpretation, De Moivre''s theorem, and roots of unity with problem-solving techniques suitable for advanced high-school students.',
@@ -587,3 +600,269 @@ INSERT INTO
 VALUES (1, 1),
     (1, 2),
     (1, 11);
+
+-- Insert sample Quizlet Q&A for each lesson (approx 5 per lesson)
+-- Lesson IDs correspond to the order they were inserted above (1..10)
+INSERT INTO
+    Quizlet (lesson_id, question, answer)
+VALUES
+    -- Lesson 1: Complex Numbers and Roots of Unity (lesson_id = 1)
+    (
+        1,
+        'What is the polar form of a complex number z = x + iy?',
+        'z = r(cos θ + i sin θ), where r = √(x^2 + y^2) and θ = atan2(y,x)'
+    ),
+    (
+        1,
+        'State De Moivre''s theorem for integer n.',
+        'z^n = r^n (cos(nθ) + i sin(nθ)) for z = r(cos θ + i sin θ)'
+    ),
+    (
+        1,
+        'What are the 6th roots of 64 in polar form?',
+        'r = 2 and angles θ_k = (2πk)/6 for k=0..5'
+    ),
+    (
+        1,
+        'Where are the nth roots of unity located?',
+        'Evenly spaced on the unit circle at angles 2πk/n'
+    ),
+    (
+        1,
+        'How to convert from polar to rectangular coordinates?',
+        'x = r cos θ, y = r sin θ'
+    ),
+    -- Lesson 2: Sequences, Limits and Monotonicity (lesson_id = 2)
+    (
+        2,
+        'What is the limit of a_n = n/(n+1)?',
+        '1'
+    ),
+    (
+        2,
+        'Give the epsilon-N definition of the limit of a sequence.',
+        'For every ε>0 there exists N such that for all n≥N, |a_n - L| < ε'
+    ),
+    (
+        2,
+        'What does monotone convergence theorem state?',
+        'A bounded monotone sequence converges'
+    ),
+    (
+        2,
+        'Is b_n = (-1)^n + 1/n convergent?',
+        'No, but its subsequences converge to 1 and -1 respectively'
+    ),
+    (
+        2,
+        'What is a subsequence?',
+        'A sequence formed by selecting terms from the original sequence in increasing index order'
+    ),
+    -- Lesson 3: Infinite Series and Convergence Tests (lesson_id = 3)
+    (
+        3,
+        'What is absolute convergence?',
+        'A series ∑ a_n is absolutely convergent if ∑ |a_n| converges'
+    ),
+    (
+        3,
+        'State the alternating series test (Leibniz).',
+        'If terms decrease to 0 in absolute value, the alternating series converges'
+    ),
+    (
+        3,
+        'Does ∑ (-1)^n / sqrt(n) converge?',
+        'Yes, by alternating series test (terms → 0 and decrease in magnitude)'
+    ),
+    (
+        3,
+        'What test is useful for factorial growth like n!?',
+        'Ratio test'
+    ),
+    (
+        3,
+        'Define radius of convergence for power series ∑ a_n x^n.',
+        'R = 1/limsup |a_n|^{1/n} (or from ratio/root tests)'
+    ),
+    -- Lesson 4: Advanced Trigonometric Identities and Equations (lesson_id = 4)
+    (
+        4,
+        'Write the double-angle formula for sine.',
+        'sin 2x = 2 sin x cos x'
+    ),
+    (
+        4,
+        'Transform sum to product: sin A + sin B.',
+        '2 sin((A+B)/2) cos((A-B)/2)'
+    ),
+    (
+        4,
+        'What is sin^2 x + sin^2(x+2π/3) + sin^2(x+4π/3)?',
+        '3/2'
+    ),
+    (
+        4,
+        'Solve 2 sin(2x) + sin x = 0 on [0,2π).',
+        'Use identity sin2x = 2 sin x cos x and factor to find solutions'
+    ),
+    (
+        4,
+        'What is the triple-angle formula for cosine?',
+        'cos 3x = 4 cos^3 x - 3 cos x'
+    ),
+    -- Lesson 5: Definite and Improper Integrals (lesson_id = 5)
+    (
+        5,
+        'Evaluate ∫_0^∞ x^2 e^{-x} dx.',
+        '2 (Gamma function Γ(3) = 2!)'
+    ),
+    (
+        5,
+        'When is ∫_1^∞ 1/(x (ln x)^p) convergent?',
+        'Convergent if p > 1'
+    ),
+    (
+        5,
+        'State integration by parts formula.',
+        '∫ u dv = uv - ∫ v du'
+    ),
+    (
+        5,
+        'What is an improper integral?',
+        'An integral with infinite limits or integrand singularities'
+    ),
+    (
+        5,
+        'How to test convergence for improper integrals?',
+        'Compare with known convergent/divergent integrals or use limit comparison'
+    ),
+    -- Lesson 6: Vectors in Space and Planes (lesson_id = 6)
+    (
+        6,
+        'How to compute the dot product of vectors a and b?',
+        'a·b = |a||b|cos θ = Σ a_i b_i'
+    ),
+    (
+        6,
+        'What is the cross product useful for?',
+        'Find a vector orthogonal to two vectors and compute area of parallelogram'
+    ),
+    (
+        6,
+        'Equation of a plane given point r0 and normal n?',
+        'n·(r - r0) = 0'
+    ),
+    (
+        6,
+        'How to find distance from point to plane?',
+        'Use |n·(r0 - r)|/|n| formula'
+    ),
+    (
+        6,
+        'How to find intersection line of two planes?',
+        'Solve the two plane equations simultaneously to get parametric line'
+    ),
+    -- Lesson 7: Conic Sections (lesson_id = 7)
+    (
+        7,
+        'Define a conic using focus and directrix.',
+        'Set of points with distance ratio to focus/directrix equal to eccentricity e'
+    ),
+    (
+        7,
+        'What is eccentricity of a parabola?',
+        'e = 1'
+    ),
+    (
+        7,
+        'Equation of an ellipse centered at origin (major along x).',
+        'x^2/a^2 + y^2/b^2 = 1'
+    ),
+    (
+        7,
+        'What property does a parabola have related to reflection?',
+        'Reflective property: rays from focus reflect parallel to axis'
+    ),
+    (
+        7,
+        'Define hyperbola eccentricity relation.',
+        'For hyperbola, e > 1 and relation b^2 = a^2(e^2 - 1)'
+    ),
+    -- Lesson 8: Inequalities: AM-GM, Cauchy, and Jensen (lesson_id = 8)
+    (
+        8,
+        'State AM-GM inequality for two positives a and b.',
+        '(a+b)/2 ≥ √(ab)'
+    ),
+    (
+        8,
+        'What does Cauchy-Schwarz inequality state?',
+        '(Σ a_i^2)(Σ b_i^2) ≥ (Σ a_i b_i)^2'
+    ),
+    (
+        8,
+        'When is equality achieved in AM-GM?',
+        'When all variables are equal'
+    ),
+    (
+        8,
+        'What is Jensen''s inequality about?',
+        'Convex function: f(λx+(1-λ)y) ≤ λf(x)+(1-λ)f(y)'
+    ),
+    (
+        8,
+        'For xyz=1 minimize x+y+z (positive vars).',
+        'By AM-GM the minimum is 3 when x=y=z=1'
+    ),
+    -- Lesson 9: Sequences and Power Series: Uniform Convergence (lesson_id = 9)
+    (
+        9,
+        'Define uniform convergence of functions sequence f_n on set A.',
+        'f_n → f uniformly if ∀ε∃N s.t. ∀n≥N and ∀x∈A, |f_n(x)-f(x)|<ε'
+    ),
+    (
+        9,
+        'State Weierstrass M-test.',
+        'If |f_n(x)| ≤ M_n and Σ M_n converges then Σ f_n converges uniformly'
+    ),
+    (
+        9,
+        'What is radius of convergence?',
+        'Distance from center within which power series converges'
+    ),
+    (
+        9,
+        'Does ∑ n^2 x^n have radius of convergence 1?',
+        'Yes, by root or ratio test R=1'
+    ),
+    (
+        9,
+        'When can you interchange limit and integral?',
+        'If convergence is uniform and integrands are continuous (or dominated convergence applies)'
+    ),
+    -- Lesson 10: Matrices, Determinants and Eigenvalues (lesson_id = 10)
+    (
+        10,
+        'What is the characteristic polynomial of matrix A?',
+        'det(A - λI)'
+    ),
+    (
+        10,
+        'How to check if a matrix is diagonalizable?',
+        'If there are enough linearly independent eigenvectors to form a basis'
+    ),
+    (
+        10,
+        'What does determinant tell about invertibility?',
+        'Matrix is invertible iff determinant ≠ 0'
+    ),
+    (
+        10,
+        'How to compute eigenvalues?',
+        'Solve det(A - λI) = 0'
+    ),
+    (
+        10,
+        'What is the relationship between trace and eigenvalues?',
+        'Trace equals sum of eigenvalues'
+    );
