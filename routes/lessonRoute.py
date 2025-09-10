@@ -201,8 +201,7 @@ async def create_tracking(
         db_entry = LessonTracking(
             user_id=entry.user_id,
             lesson_id=entry.lesson_id,
-            progress=entry.progress or 0.0,
-            status=entry.status or "not_started",
+            is_finished=entry.is_finished,
         )
         db.add(db_entry)
         await db.commit()
