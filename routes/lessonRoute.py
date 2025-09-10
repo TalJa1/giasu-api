@@ -222,7 +222,7 @@ async def list_tracking(
     return items
 
 
-@tracking_router.get("/{tracking_id}", response_model=LessonTrackingResponse)
+@tracking_router.get("/id/{tracking_id}", response_model=LessonTrackingResponse)
 async def get_tracking(tracking_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(LessonTracking).where(LessonTracking.id == tracking_id)
@@ -248,7 +248,28 @@ async def get_tracking_by_user(
     return items
 
 
-@tracking_router.put("/{tracking_id}", response_model=LessonTrackingResponse)
+class IsLearnedResponse(BaseModel):
+    isLearned: bool
+
+
+@tracking_router.get("/check", response_model=IsLearnedResponse)
+async def check_if_learned(
+    user_id: int, lesson_id: int, db: AsyncSession = Depends(get_db)
+):
+    """Return whether a given user has finished the given lesson. Only returns isLearned boolean."""
+    result = await db.execute(
+        select(LessonTracking).where(
+            (LessonTracking.user_id == user_id)
+            & (LessonTracking.lesson_id == lesson_id)
+        )
+    )
+    entry = result.scalars().first()
+    if not entry:
+        return {"isLearned": False}
+    return {"isLearned": bool(entry.is_finished)}
+
+
+@tracking_router.put("/id/{tracking_id}", response_model=LessonTrackingResponse)
 async def update_tracking(
     tracking_id: int,
     track_update: LessonTrackingUpdate,
@@ -274,7 +295,7 @@ async def update_tracking(
         raise HTTPException(status_code=400, detail="Failed to update tracking entry")
 
 
-@tracking_router.delete("/{tracking_id}", status_code=status.HTTP_204_NO_CONTENT)
+@tracking_router.delete("/id/{tracking_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tracking(tracking_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(LessonTracking).where(LessonTracking.id == tracking_id)
