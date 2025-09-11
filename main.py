@@ -12,6 +12,7 @@ from routes.AIRoute import router as airouter
 from routes.universityRoute import router as university_router
 from routes.quizletRoute import router as quizlet_router
 from routes.testRoute import router as test_router
+from routes.resultRoute import router as result_router
 import logging
 from contextlib import asynccontextmanager
 
@@ -63,6 +64,7 @@ class FilterParams(BaseModel):
 app.include_router(reset_router, prefix="/api/v1", tags=["reset"])
 app.include_router(airouter, prefix="/api/v1", tags=["ai"])
 app.include_router(test_router, prefix="/api/v1", tags=["tests"])
+app.include_router(result_router, prefix="/api/v1", tags=["results"])
 app.include_router(user_router, prefix="/api/v1", tags=["users"])
 app.include_router(user_prefs_router, prefix="/api/v1", tags=["user-preferences"])
 app.include_router(lesson_router, prefix="/api/v1", tags=["lessons"])
