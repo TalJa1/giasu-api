@@ -265,7 +265,8 @@ async def check_if_learned(
     entry = result.scalars().first()
     if not entry:
         return {"isLearned": False}
-    return {"isLearned": bool(entry.is_finished)}
+    # Consider a lesson learned if a tracking entry exists for the user and lesson.
+    return {"isLearned": True}
 
 
 @tracking_router.put("/id/{tracking_id}", response_model=LessonTrackingResponse)
@@ -306,6 +307,48 @@ async def delete_tracking(tracking_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(db_item)
     await db.commit()
     return {"detail": "Tracking entry deleted"}
+
+
+# Return all lessons with isLearned flag for the provided user_id.
+class LessonWithTrackingResponse(LessonResponse):
+    isLearned: bool
+
+
+@tracking_router.get(
+    "/user/{user_id}/lessons", response_model=List[LessonWithTrackingResponse]
+)
+async def list_lessons_with_user_tracking(
+    user_id: int, db: AsyncSession = Depends(get_db)
+):
+    # fetch all lessons
+    lessons_res = await db.execute(select(Lesson))
+    lessons = lessons_res.scalars().all()
+
+    # fetch tracking entries for the user
+    tracking_res = await db.execute(
+        select(LessonTracking).where(LessonTracking.user_id == user_id)
+    )
+    tracking_items = tracking_res.scalars().all()
+    # mark learned if a tracking record exists for the lesson (presence => learned)
+    tracking_map = {t.lesson_id: True for t in tracking_items}
+
+    out = []
+    for l in lessons:
+        out.append(
+            {
+                "id": l.id,
+                "title": l.title,
+                "description": l.description,
+                "content": l.content,
+                "subject": l.subject,
+                "content_url": l.content_url,
+                "created_by": l.created_by,
+                "created_at": l.created_at,
+                "isLearned": tracking_map.get(l.id, False),
+            }
+        )
+
+    return out
 
 
 # Include tracking router into main router for single import
