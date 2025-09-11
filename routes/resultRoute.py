@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy import Column, Integer, Float, Text, Boolean, ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
@@ -118,7 +118,29 @@ def _deserialize_answer(text: Optional[str]) -> List[str]:
 
 
 @router.post("/", response_model=ResultResponse, status_code=status.HTTP_201_CREATED)
-async def create_result(payload: ResultCreate, db: AsyncSession = Depends(get_db)):
+async def create_result(
+    payload: ResultCreate = Body(
+        ...,
+        example={
+            "user_id": 0,
+            "test_id": 0,
+            "score": 0,
+            "total_questions": 0,
+            "correct_answers": 0,
+            "points_earned": 0,
+            "points_possible": 10.0,
+            "answers": [
+                {
+                    "question_id": 0,
+                    "user_answer": ["B"],
+                    "is_correct": True,
+                    "partial_credit": 1.0,
+                },
+            ],
+        },
+    ),
+    db: AsyncSession = Depends(get_db),
+):
     # Create test result and nested answers atomically
     db_result = UserTestResult(
         user_id=payload.user_id,
