@@ -50,6 +50,7 @@ Table Tests {
   description text
   created_by integer [ref: > Users.id]
   created_at datetime [default: `CURRENT_TIMESTAMP`]
+  supports_multiple_answers boolean [default: false, note: 'If true, this test may include questions that allow multiple answers']
   
   Note: 'Test and quiz definitions that can be created by users'
 }
@@ -63,9 +64,11 @@ Table TestQuestions {
   option_b text
   option_c text
   option_d text
-  correct_option char(1) [note: 'A, B, C, or D']
-  
-  Note: 'Multiple choice questions for tests with 4 options and correct answer'
+  question_type text [default: 'single', note: "'single' or 'multiple'"]
+  correct_options text [note: 'One or more correct choices. Use JSON array or comma-separated letters, e.g. ["A"] or A,B']
+  points real [default: 1.0]
+
+  Note: 'Multiple choice questions for tests with 4 options. Supports single and multiple correct answers and per-question points'
 }
 
 // User Test Results table - Overall test session tracking
@@ -76,6 +79,8 @@ Table UserTestResults {
   score real
   total_questions integer
   correct_answers integer
+  points_earned real [default: 0.0]
+  points_possible real [default: 0.0]
   taken_at datetime [default: `CURRENT_TIMESTAMP`]
   
   Note: 'Records of user test attempts with overall scores and statistics'
@@ -86,11 +91,12 @@ Table UserQuestionAnswers {
   id integer [primary key, increment]
   test_result_id integer [not null, ref: > UserTestResults.id]
   question_id integer [not null, ref: > TestQuestions.id]
-  user_answer char(1) [note: 'A, B, C, or D - user selected option']
+  user_answer text [note: 'User answer(s). Can be single like A or JSON/CSV for multiple: ["A","C"] or A,C']
   is_correct boolean [default: false]
+  partial_credit real [default: 0.0]
   answered_at datetime [default: `CURRENT_TIMESTAMP`]
   
-  Note: 'Stores individual question answers for comprehensive test review functionality'
+  Note: 'Stores individual question answers for comprehensive test review. Supports multiple selected answers and partial credit'
 }
 
 // Universities table - University master data

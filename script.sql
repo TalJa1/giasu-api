@@ -52,6 +52,8 @@ CREATE TABLE Tests (
     description TEXT,
     created_by INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- If true, this test may include questions that allow multiple answers.
+    supports_multiple_answers BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (created_by) REFERENCES Users (id)
 );
 
@@ -64,7 +66,12 @@ CREATE TABLE TestQuestions (
     option_b TEXT,
     option_c TEXT,
     option_d TEXT,
-    correct_option CHAR(1),
+    -- question_type: 'single' or 'multiple'
+    question_type TEXT NOT NULL DEFAULT 'single',
+    -- correct_options stores one or more correct choices. Use a JSON array or comma-separated letters, e.g. '["A"]' or 'A,B'
+    correct_options TEXT,
+    -- points available for this question (useful for partial credit)
+    points REAL DEFAULT 1.0,
     FOREIGN KEY (test_id) REFERENCES Tests (id)
 );
 
@@ -76,6 +83,9 @@ CREATE TABLE UserTestResults (
     score REAL,
     total_questions INTEGER,
     correct_answers INTEGER,
+    -- optional: support point-based scoring for partial credit
+    points_earned REAL DEFAULT 0.0,
+    points_possible REAL DEFAULT 0.0,
     taken_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES Users (id),
     FOREIGN KEY (test_id) REFERENCES Tests (id)
@@ -86,8 +96,11 @@ CREATE TABLE UserQuestionAnswers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     test_result_id INTEGER NOT NULL,
     question_id INTEGER NOT NULL,
-    user_answer CHAR(1),
+    -- user_answer can store single choice like 'A' or multiple like '["A","C"]' or 'A,C'
+    user_answer TEXT,
     is_correct BOOLEAN DEFAULT FALSE,
+    -- fraction or points awarded for this answer (useful for partial credit on multiple-choice)
+    partial_credit REAL DEFAULT 0.0,
     answered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (test_result_id) REFERENCES UserTestResults (id),
     FOREIGN KEY (question_id) REFERENCES TestQuestions (id)
@@ -331,6 +344,7 @@ VALUES (
 
 -- Insert 10 advanced Mathematics lessons suitable for grade 11+
 
+
 INSERT INTO Lessons (title, description, content, subject, content_url, created_by) VALUES
 ('Complex Numbers and Roots of Unity',
  'Detailed study of complex numbers focusing on modulus, argument, geometric interpretation, De Moivre''s theorem, and roots of unity with problem-solving techniques suitable for advanced high-school students.',
@@ -495,13 +509,53 @@ INSERT INTO
         created_by
     )
 VALUES (
-        'Basic Math Test',
-        'Fundamental algebra and arithmetic',
+        'Lesson 1 Test - Complex Numbers',
+        'Test covering Complex Numbers and Roots of Unity',
         2
     ),
     (
-        'English Grammar Test',
-        'Basic grammar and vocabulary',
+        'Lesson 2 Test - Sequences and Limits',
+        'Test covering Sequences, Limits and Monotonicity',
+        2
+    ),
+    (
+        'Lesson 3 Test - Infinite Series',
+        'Test covering Infinite Series and Convergence Tests',
+        2
+    ),
+    (
+        'Lesson 4 Test - Trigonometry',
+        'Test covering Advanced Trigonometric Identities and Equations',
+        2
+    ),
+    (
+        'Lesson 5 Test - Integrals',
+        'Test covering Definite and Improper Integrals',
+        2
+    ),
+    (
+        'Lesson 6 Test - Vectors',
+        'Test covering Vectors in Space and Planes',
+        2
+    ),
+    (
+        'Lesson 7 Test - Conic Sections',
+        'Test covering Conic Sections and Properties',
+        2
+    ),
+    (
+        'Lesson 8 Test - Inequalities',
+        'Test covering AM-GM, Cauchy, Jensen and related problems',
+        2
+    ),
+    (
+        'Lesson 9 Test - Power Series',
+        'Test covering Sequences and Power Series: Uniform Convergence',
+        2
+    ),
+    (
+        'Lesson 10 Test - Linear Algebra',
+        'Test covering Matrices, Determinants and Eigenvalues',
         2
     );
 
@@ -514,44 +568,1130 @@ INSERT INTO
         option_b,
         option_c,
         option_d,
-        correct_option
+        question_type,
+        correct_options,
+        points
     )
-VALUES (
+VALUES
+    -- Test 1 (Lesson 1) questions
+    (
         1,
-        'What is 2 + 2?',
+        'Polar form: z = r(cos θ + i sin θ). What is r for z = 3 + 4i?',
         '3',
         '4',
         '5',
-        '6',
-        'B'
+        '7',
+        'single',
+        '["C"]',
+        1.0
     ),
     (
         1,
-        'What is 5 × 3?',
-        '12',
-        '15',
-        '18',
-        '20',
-        'B'
+        'De Moivre: (cos θ + i sin θ)^2 equals?',
+        'cos2θ + i sin2θ',
+        'cos2θ - i sin2θ',
+        'cos^2 θ - sin^2 θ + i 2 sin θ cos θ',
+        '1',
+        'single',
+        '["C"]',
+        1.0
     ),
     (
-        2,
-        'Choose the correct word: I ___ a book.',
-        'read',
-        'reads',
-        'reading',
-        'readed',
-        'A'
+        1,
+        'Roots of unity: which of the following are 4th roots of unity? (choose all that apply)',
+        '1',
+        '-1',
+        'i',
+        '2',
+        'multiple',
+        '["A","B","C"]',
+        1.0
     ),
     (
-        2,
-        'What is the synonym of "happy"?',
-        'sad',
-        'joyful',
-        'angry',
-        'tired',
-        'B'
-    );
+        1,
+        'Convert to rectangular: r=2, θ=π/6 => x = ?',
+        '√3',
+        '1',
+        '2√3',
+        '1/2',
+        'single',
+        '["A"]',
+        1.0
+    ),
+    (
+        1,
+        'Which statement about complex conjugates is true?',
+        'Product of conjugates is sum of squares',
+        'Conjugate of sum is sum of conjugates',
+        'Conjugate of product is division of conjugates',
+        'Conjugate equals negative',
+        'single',
+        '["B"]',
+        1.0
+    ),
+    (
+        1,
+        'Find arguments: which angles correspond to roots evenly spaced on unit circle? (choose all)',
+        '0',
+        'π/2',
+        'π/3',
+        '2π/3',
+        'multiple',
+        '["A","B","C","D"]',
+        1.0
+    ),
+    (
+        1,
+        'If z^6 = 64, what is modulus r?',
+        '1',
+        '2',
+        '4',
+        '8',
+        'single',
+        '["B"]',
+        1.0
+    ),
+    (
+        1,
+        'Which are valid polar representations of same z? (choose all)',
+        'r=2, θ=π/4',
+        'r=-2, θ=5π/4',
+        'r=2, θ=9π/4',
+        'r=2, θ=-7π/4',
+        'multiple',
+        '["A","C","D"]',
+        1.0
+    ),
+    (
+        1,
+        'What is geometric interpretation of multiplication by i?',
+        'Rotation by 90°',
+        'Scaling by 2',
+        'Reflection',
+        'Translation',
+        'single',
+        '["A"]',
+        1.0
+    ),
+    (
+        1,
+        'Which properties hold for modulus |z|? (choose all)',
+        'Nonnegative',
+        'Multiplicative: |zw|=|z||w|',
+        'Additive: |z+w|=|z|+|w|',
+        'Triangle inequality',
+        'multiple',
+        '["A","B","D"]',
+        1.0
+    ),
+
+-- Test 2 (Lesson 2) questions
+(
+    2,
+    'Limit: what is lim_{n→∞} n/(n+1)?',
+    '0',
+    '1',
+    '∞',
+    'Does not exist',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    2,
+    'Monotone convergence theorem applies to which sequences?',
+    'Bounded monotone',
+    'Any monotone',
+    'Any bounded',
+    'Periodic',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    2,
+    'Definition: epsilon-N is used to formalize which concept?',
+    'Derivative',
+    'Integral',
+    'Limit of sequence',
+    'Continuity',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    2,
+    'Subsequences: b_n = (-1)^n + 1/n has subsequence limits?',
+    'Only 1',
+    'Only -1',
+    '1 and -1',
+    'No limits',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    2,
+    'Which are examples of bounded sequences? (choose all)',
+    'sin n',
+    'n',
+    '1/n',
+    '(-1)^n',
+    'multiple',
+    '["A","C","D"]',
+    1.0
+),
+(
+    2,
+    'Which technique proves monotonicity?',
+    'Epsilon-N',
+    'Induction',
+    'Integration',
+    'Matrix diagonalization',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    2,
+    'Which statements correct about subsequences? (choose all)',
+    'Every sequence has monotone subsequence',
+    'Cauchy implies convergent in R',
+    'Subsequence of convergent sequence converges to same limit',
+    'A subsequence can diverge if original converges',
+    'multiple',
+    '["B","C"]',
+    1.0
+),
+(
+    2,
+    'Given a_n = n/(n+1), is it increasing or decreasing?',
+    'Increasing',
+    'Decreasing',
+    'Constant',
+    'Oscillatory',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    2,
+    'Limit comparison is used for sequences or series?',
+    'Sequences',
+    'Series',
+    'Both',
+    'Neither',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    2,
+    'Epsilon-N quantifier: For every ε>0 there exists N such that...',
+    'For all n≥N |a_n-L|<ε',
+    'There exists n |a_n-L|>ε',
+    'L depends on n',
+    'ε depends on N',
+    'single',
+    '["A"]',
+    1.0
+),
+
+-- Test 3 (Lesson 3) questions
+(
+    3,
+    'Absolute convergence: series ∑ a_n absolutely convergent means?',
+    '∑ a_n converges',
+    '∑ |a_n| converges',
+    'Terms go to zero',
+    '∑ (-1)^n a_n converges',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    3,
+    'Alternating series test requires what?',
+    'Terms nonincreasing to 0',
+    'Terms increasing',
+    'Absolute convergence',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    3,
+    'Does ∑ (-1)^n / sqrt(n) converge?',
+    'Yes (conditional)',
+    'No',
+    'Yes (absolute)',
+    'Diverges to ∞',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    3,
+    'Which tests are useful for factorial growth? (choose all)',
+    'Ratio test',
+    'Root test',
+    'Alternating test',
+    'Comparison with p-series',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    3,
+    'Radius of convergence uses which value?',
+    'Sum of coefficients',
+    'limsup |a_n|^{1/n}',
+    'Product of terms',
+    'First term only',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    3,
+    'Which are consequences of absolute convergence? (choose all)',
+    'Rearrangements preserve sum',
+    'Series converges absolutely',
+    'Conditional convergence',
+    'Uniform convergence',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    3,
+    'Power series center affects what?',
+    'Radius',
+    'Interval of convergence center',
+    'Coefficients',
+    'Degree',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    3,
+    'Which is a necessary condition for series convergence?',
+    'Terms → 0',
+    'Partial sums bounded',
+    'Absolute convergence',
+    'Alternation',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    3,
+    'Use of root test is best when terms involve which form?',
+    'n!',
+    'a^n',
+    'n^n',
+    'log n',
+    'multiple',
+    '["B","C"]',
+    1.0
+),
+(
+    3,
+    'Which statements about conditional convergence are true? (choose all)',
+    'Absolute divergence possible',
+    'Sum depends on order',
+    'Always converges absolutely',
+    'None',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+
+-- Test 4 (Lesson 4) questions
+(
+    4,
+    'Double-angle: sin 2x equals?',
+    '2 sin x cos x',
+    'sin^2 x - cos^2 x',
+    'tan x',
+    '2 cos^2 x',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    4,
+    'Sum-to-product: sin A + sin B equals?',
+    '2 sin((A+B)/2) cos((A-B)/2)',
+    'sin(A+B)',
+    'cos(A-B)',
+    '2 cos((A+B)/2) sin((A-B)/2)',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    4,
+    'Which identities are triple-angle formulas? (choose all)',
+    'cos3x=4cos^3x-3cosx',
+    'sin3x=3sinx-4sin^3x',
+    'tan3x formula',
+    'None',
+    'multiple',
+    '["A","B","C"]',
+    1.0
+),
+(
+    4,
+    'Solve: 2 sin(2x)+sin x=0 technique uses?',
+    'Double-angle identity',
+    'Integration',
+    'Complex numbers',
+    'Differentiation',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    4,
+    'Value of sin^2 x + sin^2(x+2π/3)+sin^2(x+4π/3) equals?',
+    '1',
+    '3/2',
+    '2',
+    '0',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    4,
+    'Which are transformations turning sums into products? (choose all)',
+    'Product-to-sum',
+    'Sum-to-product',
+    'Double-angle',
+    'Half-angle',
+    'multiple',
+    '["B","A"]',
+    1.0
+),
+(
+    4,
+    'Triple-angle cosine formula equals?',
+    'cos3x=4cos^3x-3cosx',
+    'cos3x=3cosx-4cos^3x',
+    'cos3x=cos x',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    4,
+    'Which methods help solve parameterized trig equations? (choose all)',
+    'Graphical',
+    'Algebraic identities',
+    'Numerical only',
+    'Symmetry arguments',
+    'multiple',
+    '["A","B","D"]',
+    1.0
+),
+(
+    4,
+    'Sum-to-product formula helps convert sums into what?',
+    'Products',
+    'Integrals',
+    'Derivatives',
+    'Matrices',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    4,
+    'Which is a valid double-angle identity for cosine?',
+    'cos2x=cos^2x-sin^2x',
+    'cos2x=2cosx',
+    'cos2x=sinx',
+    'cos2x=1',
+    'single',
+    '["A"]',
+    1.0
+),
+
+-- Test 5 (Lesson 5) questions
+(
+    5,
+    'Evaluate ∫_0^∞ x^2 e^{-x} dx equals?',
+    '1',
+    '2',
+    'Γ(3)=2',
+    '∞',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    5,
+    'Improper integral ∫_1^∞ 1/(x (ln x)^p) converges for which p?',
+    'p>0',
+    'p>1',
+    'p<1',
+    'all p',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    5,
+    'Integration by parts formula is?',
+    '∫ u dv = uv - ∫ v du',
+    '∫ u dv = u+v',
+    '∫ u dv = uv',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    5,
+    'What is an improper integral?',
+    'Integral with infinite limits or singularities',
+    'Integral of polynomial',
+    'Definite integral only',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    5,
+    'Test convergence for improper integrals using which methods? (choose all)',
+    'Comparison',
+    'Limit comparison',
+    'Integration by parts',
+    'Ratio test',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    5,
+    'Which substitution is useful for ∫ x^2 e^{-x} dx?',
+    'u=x',
+    'u=e^{-x}',
+    'Gamma substitution',
+    'Trigonometric',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    5,
+    'What justifies interchange of limit and integral?',
+    'Uniform convergence',
+    'Pointwise convergence',
+    'Divergence',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    5,
+    'Which integrals are improper? (choose all)',
+    'Infinite interval',
+    'Integrand singular at point',
+    'Definite integral with continuous integrand',
+    'None',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    5,
+    'Value of Γ(n) for integer n is?',
+    'n',
+    'n!',
+    '(n-1)!',
+    '1',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    5,
+    'Test to determine convergence of ∫_1^∞ 1/(x^p) requires p?',
+    'p>1',
+    'p<1',
+    'p=1',
+    'none',
+    'single',
+    '["A"]',
+    1.0
+),
+
+-- Test 6 (Lesson 6) questions
+(
+    6,
+    'Dot product a·b equals?',
+    '|a||b|cosθ',
+    '|a||b|sinθ',
+    'Cross product magnitude',
+    'Sum of components',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    6,
+    'Cross product gives?',
+    'Scalar',
+    'Vector orthogonal to both',
+    'Angle',
+    'None',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    6,
+    'Equation of a plane given point r0 and normal n is?',
+    'n·(r - r0) = 0',
+    'r·n = r0',
+    'r = r0',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    6,
+    'Distance from point to plane uses which formula?',
+    '|n·(r0 - r)|/|n|',
+    'Dot product only',
+    'Cross product only',
+    'Projection only',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    6,
+    'Find intersection of two planes results in?',
+    'Point',
+    'Line',
+    'Plane',
+    'Empty set',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    6,
+    'Which are vector operations? (choose all)',
+    'Dot product',
+    'Cross product',
+    'Matrix multiplication',
+    'Scalar division',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    6,
+    'Projection formula gives which result?',
+    'Scalar only',
+    'Vector projection',
+    'Matrix',
+    'Angle',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    6,
+    'Shortest distance from point to line uses which technique?',
+    'Projection',
+    'Integration',
+    'Differentiation',
+    'Series expansion',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    6,
+    'Angle between planes equals angle between which vectors?',
+    'Normal vectors',
+    'Direction vectors',
+    'Points',
+    'Lines',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    6,
+    'Which statements about cross product are true? (choose all)',
+    'Anticommutative',
+    'Distributive over addition',
+    'Associative',
+    'Produces scalar',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+
+-- Test 7 (Lesson 7) questions
+(
+    7,
+    'Definition: conic using focus and directrix depends on which parameter?',
+    'Radius',
+    'Eccentricity e',
+    'Angle',
+    'None',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    7,
+    'Eccentricity of parabola equals?',
+    '0',
+    '1',
+    '>1',
+    '<1',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    7,
+    'Standard ellipse equation centered at origin is?',
+    'x^2/a^2 + y^2/b^2 = 1',
+    'x^2 + y^2 = r^2',
+    'xy=1',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    7,
+    'Reflective property of parabola means rays from focus reflect to?',
+    'A point',
+    'Parallel to axis',
+    'Circle',
+    'Ellipse',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    7,
+    'Hyperbola eccentricity condition is?',
+    'e<1',
+    'e=1',
+    'e>1',
+    'e=0',
+    'single',
+    '["C"]',
+    1.0
+),
+(
+    7,
+    'Which are conic sections? (choose all)',
+    'Parabola',
+    'Ellipse',
+    'Hyperbola',
+    'Circle',
+    'multiple',
+    '["A","B","C","D"]',
+    1.0
+),
+(
+    7,
+    'Focus-directrix property involves ratio of distances equal to?',
+    'e',
+    '1/e',
+    'e^2',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    7,
+    'Which property is used in optics for parabolas?',
+    'Reflective property',
+    'Rotational symmetry',
+    'Translational symmetry',
+    'Scaling',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    7,
+    'Ellipse eccentricity relation uses which? (choose all)',
+    'b^2=a^2(1-e^2)',
+    'b^2=a^2(e^2-1)',
+    'Depends on focus',
+    'None',
+    'multiple',
+    '["A"]',
+    1.0
+),
+(
+    7,
+    'Which transforms convert conic equation orientation?',
+    'Rotation of axes',
+    'Scaling only',
+    'Translation only',
+    'Differentiation',
+    'single',
+    '["A"]',
+    1.0
+),
+
+-- Test 8 (Lesson 8) questions
+(
+    8,
+    'AM-GM for two positives a and b states?',
+    '(a+b)/2 ≥ √(ab)',
+    'a+b ≥ ab',
+    'a^2+b^2 ≥ 2ab',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Cauchy-Schwarz inequality formula involves which sums?',
+    '(Σ a_i^2)(Σ b_i^2) ≥ (Σ a_i b_i)^2',
+    'Σ a_i b_i ≥ 0',
+    'Product less than sum',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'When equality holds in AM-GM?',
+    'When variables are equal',
+    'When variables are different',
+    'Never',
+    'Always',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Jensen''s inequality applies to which functions?',
+    'Convex functions',
+    'Concave',
+    'Linear only',
+    'Polynomial only',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Which inequalities are useful together? (choose all)',
+    'AM-GM',
+    'Cauchy',
+    'Jensen',
+    'None',
+    'multiple',
+    '["A","B","C"]',
+    1.0
+),
+(
+    8,
+    'For xyz=1 minimize x+y+z by AM-GM gives?',
+    '3',
+    '1',
+    '0',
+    'Depends',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Which are true about Cauchy-Schwarz? (choose all)',
+    'Equality when vectors proportional',
+    'Used for sequences',
+    'Only for positive numbers',
+    'None',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    8,
+    'Using AM-GM can help solve which problems?',
+    'Optimization',
+    'Integration',
+    'Series convergence',
+    'Matrix diagonalization',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Jensen''s inequality requires which property of function?',
+    'Convexity',
+    'Differentiability',
+    'Boundedness',
+    'Periodicity',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    8,
+    'Combine inequalities to handle which cases? (choose all)',
+    'Equality cases',
+    'Upper bounds',
+    'Lower bounds',
+    'None',
+    'multiple',
+    '["A","B","C"]',
+    1.0
+),
+
+-- Test 9 (Lesson 9) questions
+(
+    9,
+    'Uniform convergence of f_n to f means which?',
+    'Pointwise only',
+    'Uniform: ∀ε ∃N such that ∀n≥N ∀x |f_n-f|<ε',
+    'Only at one point',
+    'None',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    9,
+    'Weierstrass M-test condition requires which?',
+    '|f_n(x)| ≤ M_n and Σ M_n converges',
+    'Pointwise bounds',
+    'Uniform divergence',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Radius of convergence R equals?',
+    'Distance from center where series converges',
+    'Sum of coefficients',
+    'First coefficient',
+    'Degree',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Does ∑ n^2 x^n have radius 1?',
+    'Yes',
+    'No',
+    'Depends',
+    'Infinite',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Uniform vs pointwise: which justifies interchange of limit and integral?',
+    'Uniform',
+    'Pointwise',
+    'Neither',
+    'Both',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Weierstrass M-test gives what conclusion? (choose all)',
+    'Uniform convergence',
+    'Absolute convergence of series of functions',
+    'Divergence',
+    'None',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    9,
+    'Power series center changes which property?',
+    'Center only',
+    'Radius',
+    'Coefficients',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Uniform convergence on closed interval implies?',
+    'Can interchange limit and integral',
+    'Divergence',
+    'No pointwise convergence',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    9,
+    'Which tests find radius of convergence? (choose all)',
+    'Ratio test',
+    'Root test',
+    'Comparison test',
+    'Alternating test',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    9,
+    'Uniform convergence requires which quantifier ordering?',
+    '∀ε ∃N ∀n∀x',
+    '∃ε ∀N ∀n',
+    '∀x ∃N ∀n',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+
+-- Test 10 (Lesson 10) questions
+(
+    10,
+    'Characteristic polynomial of A is?',
+    'det(A - λI)',
+    'trace(A)',
+    'rank(A)',
+    'det(A + λI)',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Matrix is diagonalizable when?',
+    'Has n distinct eigenvectors forming basis',
+    'Has determinant 0',
+    'Has inverse',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Determinant tells invertibility how?',
+    'Invertible iff determinant ≠ 0',
+    'Invertible iff det = 0',
+    'No relation',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Eigenvalues are roots of which polynomial?',
+    'Characteristic polynomial',
+    'Minimal polynomial',
+    'Any polynomial',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Trace relates to eigenvalues how?',
+    'Product of eigenvalues',
+    'Sum of eigenvalues',
+    'Maximum eigenvalue',
+    'Minimum eigenvalue',
+    'single',
+    '["B"]',
+    1.0
+),
+(
+    10,
+    'Which are methods to compute determinant? (choose all)',
+    'Laplace expansion',
+    'Row reduction',
+    'Eigen decomposition',
+    'Graph algorithms',
+    'multiple',
+    '["A","B"]',
+    1.0
+),
+(
+    10,
+    'Which statements about eigenvectors are true? (choose all)',
+    'Associated to eigenvalue',
+    'Linearly independent if distinct eigenvalues',
+    'Always orthogonal',
+    'Never zero',
+    'multiple',
+    '["A","B","D"]',
+    1.0
+),
+(
+    10,
+    'Diagonalization helps solve which problems?',
+    'Systems of ODEs',
+    'Integrals',
+    'Series',
+    'Probability',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Characteristic polynomial degree equals?',
+    'n for n×n matrix',
+    '1',
+    'Depends',
+    'None',
+    'single',
+    '["A"]',
+    1.0
+),
+(
+    10,
+    'Which are invariant under similarity transform? (choose all)',
+    'Trace',
+    'Determinant',
+    'Eigenvalues',
+    'Rows',
+    'multiple',
+    '["A","B","C"]',
+    1.0
+);
 
 -- Insert sample data for UserTestResults table
 INSERT INTO
@@ -571,12 +1711,13 @@ INSERT INTO
         test_result_id,
         question_id,
         user_answer,
-        is_correct
+        is_correct,
+        partial_credit
     )
-VALUES (1, 1, 'B', 1),
-    (1, 2, 'B', 1),
-    (2, 3, 'A', 1),
-    (2, 4, 'A', 0);
+VALUES (1, 1, '["B"]', 1, 1.0),
+    (1, 2, '["B"]', 1, 1.0),
+    (2, 3, '["A"]', 1, 1.0),
+    (2, 4, '["A"]', 0, 0.0);
 
 -- Insert sample data for UserPreferences table
 INSERT INTO
