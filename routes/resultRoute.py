@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
-from sqlalchemy import Column, Integer, Float, Text, Boolean, ForeignKey, select
+from sqlalchemy import Column, Integer, Float, Text, Boolean, ForeignKey, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
@@ -365,3 +365,27 @@ async def delete_result(result_id: int, db: AsyncSession = Depends(get_db)):
     await db.delete(r)
     await db.commit()
     return {"detail": "Result deleted"}
+
+
+@router.get("/progress/{user_id}")
+async def get_user_progress(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Return how many distinct tests the user has taken vs total tests available"""
+    # count distinct test_id in UserTestResults for this user
+    res = await db.execute(
+        select(UserTestResult).where(UserTestResult.user_id == user_id)
+    )
+    results = res.scalars().all()
+    tests_taken = len({r.test_id for r in results})
+
+    # count total tests using a simple SQL COUNT(*) on the Tests table
+    tres = await db.execute(text("SELECT COUNT(*) AS cnt FROM Tests"))
+    row = tres.first()
+    total_tests = int(row[0] or 0) if row is not None else 0
+
+    percent = (tests_taken / total_tests * 100.0) if total_tests else 0.0
+    return {
+        "user_id": user_id,
+        "tests_taken": tests_taken,
+        "total_tests": total_tests,
+        "percent": percent,
+    }
