@@ -5,6 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
 from typing import List, Optional, Any
 import json
+import os
+import sqlite3
+from starlette.concurrency import run_in_threadpool
 
 from database import get_db, Base
 
@@ -151,53 +154,88 @@ async def create_result(
         points_earned=payload.points_earned,
         points_possible=payload.points_possible,
     )
-    try:
-        db.add(db_result)
-        await db.commit()
-        await db.refresh(db_result)
 
-        created_answers = []
+    # To avoid async driver/greenlet issues with aiosqlite in some environments,
+    # perform the INSERT operations synchronously in a threadpool using sqlite3.
+    def _create_result_sync(payload: ResultCreate):
+        db_path = os.path.join(os.getcwd(), "giasu.db")
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO UserTestResults (user_id, test_id, score, total_questions, correct_answers, points_earned, points_possible) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                payload.user_id,
+                payload.test_id,
+                payload.score,
+                payload.total_questions,
+                payload.correct_answers,
+                payload.points_earned,
+                payload.points_possible,
+            ),
+        )
+        result_id = cur.lastrowid
+
+        created = []
         for a in payload.answers or []:
-            ua = _serialize_answer(a.user_answer)
-            db_a = UserQuestionAnswer(
-                test_result_id=db_result.id,
-                question_id=a.question_id,
-                user_answer=ua,
-                is_correct=bool(a.is_correct),
-                partial_credit=a.partial_credit or 0.0,
+            ua = json.dumps(a.user_answer) if a.user_answer is not None else None
+            cur.execute(
+                "INSERT INTO UserQuestionAnswers (test_result_id, question_id, user_answer, is_correct, partial_credit) VALUES (?, ?, ?, ?, ?)",
+                (
+                    result_id,
+                    a.question_id,
+                    ua,
+                    1 if a.is_correct else 0,
+                    a.partial_credit or 0.0,
+                ),
             )
-            db.add(db_a)
-            await db.commit()
-            await db.refresh(db_a)
-            created_answers.append(db_a)
+            aid = cur.lastrowid
+            created.append((aid, a))
 
-        # build response
-        answers_resp = [
-            {
-                "id": ans.id,
-                "question_id": ans.question_id,
-                "user_answer": _deserialize_answer(ans.user_answer),
-                "is_correct": bool(ans.is_correct),
-                "partial_credit": ans.partial_credit,
-            }
-            for ans in created_answers
-        ]
+        conn.commit()
+        conn.close()
+
+        # Read back inserted answers from the DB to ensure we return exactly
+        # what was persisted (handles edge cases and confirms all rows).
+        cur.execute(
+            "SELECT id, question_id, user_answer, is_correct, partial_credit FROM UserQuestionAnswers WHERE test_result_id = ?",
+            (result_id,),
+        )
+        rows = cur.fetchall()
+        answers_resp_local = []
+        for row in rows:
+            aid, qid, user_answer_text, is_corr, pcredit = row
+            try:
+                ua = json.loads(user_answer_text) if user_answer_text else []
+            except Exception:
+                ua = [p.strip() for p in str(user_answer_text).split(",") if p.strip()]
+            answers_resp_local.append(
+                {
+                    "id": aid,
+                    "question_id": qid,
+                    "user_answer": ua,
+                    "is_correct": bool(is_corr),
+                    "partial_credit": float(pcredit) if pcredit is not None else 0.0,
+                }
+            )
 
         return {
-            "id": db_result.id,
-            "user_id": db_result.user_id,
-            "test_id": db_result.test_id,
-            "score": db_result.score,
-            "total_questions": db_result.total_questions,
-            "correct_answers": db_result.correct_answers,
-            "points_earned": db_result.points_earned,
-            "points_possible": db_result.points_possible,
-            "taken_at": db_result.taken_at,
-            "answers": answers_resp,
+            "id": result_id,
+            "user_id": payload.user_id,
+            "test_id": payload.test_id,
+            "score": payload.score,
+            "total_questions": payload.total_questions,
+            "correct_answers": payload.correct_answers,
+            "points_earned": payload.points_earned,
+            "points_possible": payload.points_possible,
+            "taken_at": None,
+            "answers": answers_resp_local,
         }
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(status_code=400, detail="Failed to create result")
+
+    try:
+        result = await run_in_threadpool(_create_result_sync, payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create result: {e}")
 
 
 @router.get("/", response_model=List[ResultResponse])
@@ -295,6 +333,61 @@ async def get_result(result_id: int, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/user/{user_id}", response_model=List[ResultResponse])
+async def get_results_by_user(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Return a list of results for the given user_id including nested answers."""
+    # fetch results for user
+    rres = await db.execute(
+        select(UserTestResult).where(UserTestResult.user_id == user_id)
+    )
+    results = rres.scalars().all()
+
+    if not results:
+        return []
+
+    result_ids = [r.id for r in results]
+
+    ares = await db.execute(
+        select(UserQuestionAnswer).where(
+            UserQuestionAnswer.test_result_id.in_(result_ids)
+        )
+    )
+    answers = ares.scalars().all()
+
+    a_by_result = {}
+    for a in answers:
+        a_by_result.setdefault(a.test_result_id, []).append(a)
+
+    out = []
+    for r in results:
+        ans = [
+            {
+                "id": a.id,
+                "question_id": a.question_id,
+                "user_answer": _deserialize_answer(a.user_answer),
+                "is_correct": bool(a.is_correct),
+                "partial_credit": a.partial_credit,
+            }
+            for a in a_by_result.get(r.id, [])
+        ]
+        out.append(
+            {
+                "id": r.id,
+                "user_id": r.user_id,
+                "test_id": r.test_id,
+                "score": r.score,
+                "total_questions": r.total_questions,
+                "correct_answers": r.correct_answers,
+                "points_earned": r.points_earned,
+                "points_possible": r.points_possible,
+                "taken_at": r.taken_at,
+                "answers": ans,
+            }
+        )
+
+    return out
+
+
 @router.put("/{result_id}", response_model=ResultResponse)
 async def update_result(
     result_id: int, payload: ResultUpdate, db: AsyncSession = Depends(get_db)
@@ -377,10 +470,15 @@ async def get_user_progress(user_id: int, db: AsyncSession = Depends(get_db)):
     results = res.scalars().all()
     tests_taken = len({r.test_id for r in results})
 
-    # count total tests using a simple SQL COUNT(*) on the Tests table
-    tres = await db.execute(text("SELECT COUNT(*) AS cnt FROM Tests"))
-    row = tres.first()
-    total_tests = int(row[0] or 0) if row is not None else 0
+    # count total tests using ORM Test model to avoid textual SQL
+    try:
+        from routes.testRoute import Test
+        from sqlalchemy import func
+
+        cnt_res = await db.execute(select(func.count(Test.id)))
+        total_tests = int(cnt_res.scalar() or 0)
+    except Exception:
+        total_tests = 0
 
     percent = (tests_taken / total_tests * 100.0) if total_tests else 0.0
     return {
@@ -389,3 +487,33 @@ async def get_user_progress(user_id: int, db: AsyncSession = Depends(get_db)):
         "total_tests": total_tests,
         "percent": percent,
     }
+
+
+@router.delete("/user/{user_id}/{result_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_result_for_user(
+    user_id: int, result_id: int, db: AsyncSession = Depends(get_db)
+):
+    """Delete a specific result if it belongs to the provided user_id. Also deletes associated answers."""
+    rres = await db.execute(
+        select(UserTestResult).where(UserTestResult.id == result_id)
+    )
+    r = rres.scalars().first()
+    if r is None:
+        raise HTTPException(status_code=404, detail="Result not found")
+
+    if r.user_id != user_id:
+        raise HTTPException(
+            status_code=403, detail="Result does not belong to the user"
+        )
+
+    # delete associated answers
+    ares = await db.execute(
+        select(UserQuestionAnswer).where(UserQuestionAnswer.test_result_id == result_id)
+    )
+    for a in ares.scalars().all():
+        await db.delete(a)
+    await db.commit()
+
+    await db.delete(r)
+    await db.commit()
+    return {"detail": "Result deleted"}
