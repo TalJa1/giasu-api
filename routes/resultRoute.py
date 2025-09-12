@@ -192,7 +192,6 @@ async def create_result(
             created.append((aid, a))
 
         conn.commit()
-        conn.close()
 
         # Read back inserted answers from the DB to ensure we return exactly
         # what was persisted (handles edge cases and confirms all rows).
@@ -201,6 +200,7 @@ async def create_result(
             (result_id,),
         )
         rows = cur.fetchall()
+        conn.close()
         answers_resp_local = []
         for row in rows:
             aid, qid, user_answer_text, is_corr, pcredit = row
