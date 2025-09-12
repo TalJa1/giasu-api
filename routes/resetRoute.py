@@ -4,6 +4,8 @@ from sqlalchemy import text
 from database import get_db
 import os
 import logging
+import sqlite3
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter(
     prefix="/reset",
@@ -36,36 +38,39 @@ async def reset_database(db: AsyncSession = Depends(get_db)):
         with open(script_path, "r", encoding="utf-8") as file:
             sql_script = file.read()
 
-        # Split the script into individual statements
-        # Remove comments and empty lines
-        statements = []
-        for line in sql_script.split("\n"):
-            line = line.strip()
-            # Skip comments and empty lines
-            if line and not line.startswith("--"):
-                statements.append(line)
+        # Try executing the whole script using the AsyncSession.
+        # Some SQLite dialects/drivers don't allow executing multiple statements at once,
+        # so we fallback to a synchronous sqlite3 execution in a threadpool if needed.
+        try:
+            await db.execute(text(sql_script))
+            await db.commit()
+            logger.info("Executed script.sql via AsyncSession")
+            return {"message": "Database reset completed successfully (async)"}
+        except Exception as async_err:
+            logger.warning(
+                f"Async execution failed, falling back to sqlite3: {async_err}"
+            )
 
-        # Join back and split by semicolons
-        sql_content = "\n".join(statements)
-        sql_statements = [
-            stmt.strip() for stmt in sql_content.split(";") if stmt.strip()
-        ]
+        # Fallback: run the SQL script synchronously with sqlite3 inside a threadpool
+        def _run_script_sync(path: str):
+            db_file = os.path.join(os.getcwd(), "giasu.db")
+            conn = sqlite3.connect(db_file)
+            try:
+                cur = conn.cursor()
+                cur.executescript(sql_script)
+                conn.commit()
+            finally:
+                conn.close()
 
-        # Execute each SQL statement
-        for statement in sql_statements:
-            if statement:  # Skip empty statements
-                try:
-                    await db.execute(text(statement))
-                    logger.info(f"Executed SQL statement: {statement[:50]}...")
-                except Exception as stmt_error:
-                    logger.error(
-                        f"Error executing statement: {statement[:50]}... - {stmt_error}"
-                    )
-                    # Continue with other statements even if one fails
-                    continue
-
-        # Commit all changes
-        await db.commit()
+        try:
+            await run_in_threadpool(_run_script_sync, script_path)
+            logger.info("Executed script.sql via sqlite3 fallback")
+            return {
+                "message": "Database reset completed successfully (sqlite3 fallback)"
+            }
+        except Exception as fallback_err:
+            logger.error(f"Fallback sqlite3 execution failed: {fallback_err}")
+            raise
 
         logger.info("Database reset completed successfully")
         return {
@@ -75,7 +80,10 @@ async def reset_database(db: AsyncSession = Depends(get_db)):
 
     except Exception as e:
         logger.error(f"Database reset failed: {e}")
-        await db.rollback()
+        try:
+            await db.rollback()
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Database reset failed: {str(e)}",
