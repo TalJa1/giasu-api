@@ -144,92 +144,170 @@ async def create_result(
     ),
     db: AsyncSession = Depends(get_db),
 ):
-    # Create test result and nested answers atomically
-    db_result = UserTestResult(
-        user_id=payload.user_id,
-        test_id=payload.test_id,
-        score=payload.score,
-        total_questions=payload.total_questions,
-        correct_answers=payload.correct_answers,
-        points_earned=payload.points_earned,
-        points_possible=payload.points_possible,
-    )
+    # Note: we perform INSERTs in a synchronous worker to avoid aiosqlite/greenlet issues.
+    # Do not create ORM objects here (they are unused) to avoid accidental ORM side-effects.
 
     # To avoid async driver/greenlet issues with aiosqlite in some environments,
     # perform the INSERT operations synchronously in a threadpool using sqlite3.
     def _create_result_sync(payload: ResultCreate):
         db_path = os.path.join(os.getcwd(), "giasu.db")
         conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO UserTestResults (user_id, test_id, score, total_questions, correct_answers, points_earned, points_possible) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                payload.user_id,
-                payload.test_id,
-                payload.score,
-                payload.total_questions,
-                payload.correct_answers,
-                payload.points_earned,
-                payload.points_possible,
-            ),
-        )
-        result_id = cur.lastrowid
+        try:
+            cur = conn.cursor()
+            # enforce foreign keys and acquire lock to avoid concurrent dup inserts
+            cur.execute("PRAGMA foreign_keys = ON")
+            cur.execute("BEGIN IMMEDIATE")
 
-        created = []
-        for a in payload.answers or []:
-            ua = json.dumps(a.user_answer) if a.user_answer is not None else None
+            # Deduplication: check latest result for this user/test and compare answers.
+            try:
+                cur.execute(
+                    "SELECT id FROM UserTestResults WHERE user_id = ? AND test_id = ? ORDER BY id DESC LIMIT 1",
+                    (payload.user_id, payload.test_id),
+                )
+                existing = cur.fetchone()
+                if existing is not None:
+                    existing_id = existing[0]
+                    cur.execute(
+                        "SELECT id, question_id, user_answer, is_correct, partial_credit FROM UserQuestionAnswers WHERE test_result_id = ? ORDER BY id",
+                        (existing_id,),
+                    )
+                    existing_answers_rows = cur.fetchall()
+                    existing_answers = [
+                        json.loads(r[2]) if r[2] else [] for r in existing_answers_rows
+                    ]
+                    incoming_answers = [
+                        a.user_answer or [] for a in (payload.answers or [])
+                    ]
+                    if existing_answers == incoming_answers:
+                        # build response from existing records
+                        cur.execute(
+                            "SELECT id, user_id, test_id, score, total_questions, correct_answers, points_earned, points_possible, taken_at FROM UserTestResults WHERE id = ?",
+                            (existing_id,),
+                        )
+                        row = cur.fetchone()
+                        (
+                            rid,
+                            uid,
+                            tid,
+                            score,
+                            total_q,
+                            correct_a,
+                            p_earned,
+                            p_possible,
+                            taken_at,
+                        ) = row
+                        answers_resp_local = []
+                        for aid, qid, utext, is_corr, pcredit in existing_answers_rows:
+                            try:
+                                ua = json.loads(utext) if utext else []
+                            except Exception:
+                                ua = [
+                                    p.strip()
+                                    for p in str(utext).split(",")
+                                    if p.strip()
+                                ]
+                            answers_resp_local.append(
+                                {
+                                    "id": aid,
+                                    "question_id": qid,
+                                    "user_answer": ua,
+                                    "is_correct": (
+                                        bool(is_corr) if is_corr is not None else None
+                                    ),
+                                    "partial_credit": (
+                                        float(pcredit) if pcredit is not None else 0.0
+                                    ),
+                                }
+                            )
+                        conn.commit()
+                        return {
+                            "id": rid,
+                            "user_id": uid,
+                            "test_id": tid,
+                            "score": score,
+                            "total_questions": total_q,
+                            "correct_answers": correct_a,
+                            "points_earned": p_earned,
+                            "points_possible": p_possible,
+                            "taken_at": taken_at,
+                            "answers": answers_resp_local,
+                        }
+            except Exception:
+                pass
+
+            # Insert new result
             cur.execute(
-                "INSERT INTO UserQuestionAnswers (test_result_id, question_id, user_answer, is_correct, partial_credit) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO UserTestResults (user_id, test_id, score, total_questions, correct_answers, points_earned, points_possible) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
-                    result_id,
-                    a.question_id,
-                    ua,
-                    1 if a.is_correct else 0,
-                    a.partial_credit or 0.0,
+                    payload.user_id,
+                    payload.test_id,
+                    payload.score,
+                    payload.total_questions,
+                    payload.correct_answers,
+                    payload.points_earned,
+                    payload.points_possible,
                 ),
             )
-            aid = cur.lastrowid
-            created.append((aid, a))
+            result_id = cur.lastrowid
 
-        conn.commit()
+            for a in payload.answers or []:
+                ua = json.dumps(a.user_answer) if a.user_answer is not None else None
+                cur.execute(
+                    "INSERT INTO UserQuestionAnswers (test_result_id, question_id, user_answer, is_correct, partial_credit) VALUES (?, ?, ?, ?, ?)",
+                    (
+                        result_id,
+                        a.question_id,
+                        ua,
+                        1 if a.is_correct else 0,
+                        a.partial_credit or 0.0,
+                    ),
+                )
 
-        # Read back inserted answers from the DB to ensure we return exactly
-        # what was persisted (handles edge cases and confirms all rows).
-        cur.execute(
-            "SELECT id, question_id, user_answer, is_correct, partial_credit FROM UserQuestionAnswers WHERE test_result_id = ?",
-            (result_id,),
-        )
-        rows = cur.fetchall()
-        conn.close()
-        answers_resp_local = []
-        for row in rows:
-            aid, qid, user_answer_text, is_corr, pcredit = row
-            try:
-                ua = json.loads(user_answer_text) if user_answer_text else []
-            except Exception:
-                ua = [p.strip() for p in str(user_answer_text).split(",") if p.strip()]
-            answers_resp_local.append(
-                {
-                    "id": aid,
-                    "question_id": qid,
-                    "user_answer": ua,
-                    "is_correct": bool(is_corr),
-                    "partial_credit": float(pcredit) if pcredit is not None else 0.0,
-                }
+            conn.commit()
+
+            # Read back answers
+            cur.execute(
+                "SELECT id, question_id, user_answer, is_correct, partial_credit FROM UserQuestionAnswers WHERE test_result_id = ?",
+                (result_id,),
             )
+            rows = cur.fetchall()
+            answers_resp_local = []
+            for aid, qid, user_answer_text, is_corr, pcredit in rows:
+                try:
+                    ua = json.loads(user_answer_text) if user_answer_text else []
+                except Exception:
+                    ua = [
+                        p.strip() for p in str(user_answer_text).split(",") if p.strip()
+                    ]
+                answers_resp_local.append(
+                    {
+                        "id": aid,
+                        "question_id": qid,
+                        "user_answer": ua,
+                        "is_correct": bool(is_corr),
+                        "partial_credit": (
+                            float(pcredit) if pcredit is not None else 0.0
+                        ),
+                    }
+                )
 
-        return {
-            "id": result_id,
-            "user_id": payload.user_id,
-            "test_id": payload.test_id,
-            "score": payload.score,
-            "total_questions": payload.total_questions,
-            "correct_answers": payload.correct_answers,
-            "points_earned": payload.points_earned,
-            "points_possible": payload.points_possible,
-            "taken_at": None,
-            "answers": answers_resp_local,
-        }
+            return {
+                "id": result_id,
+                "user_id": payload.user_id,
+                "test_id": payload.test_id,
+                "score": payload.score,
+                "total_questions": payload.total_questions,
+                "correct_answers": payload.correct_answers,
+                "points_earned": payload.points_earned,
+                "points_possible": payload.points_possible,
+                "taken_at": None,
+                "answers": answers_resp_local,
+            }
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     try:
         result = await run_in_threadpool(_create_result_sync, payload)
