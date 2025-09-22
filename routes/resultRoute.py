@@ -1,5 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body
-from sqlalchemy import Column, Integer, Float, Text, Boolean, ForeignKey, select, text
+from sqlalchemy import (
+    Column,
+    Integer,
+    Float,
+    Text,
+    Boolean,
+    ForeignKey,
+    select,
+    text,
+    func,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel
@@ -565,6 +575,28 @@ async def get_user_progress(user_id: int, db: AsyncSession = Depends(get_db)):
         "total_tests": total_tests,
         "percent": percent,
     }
+
+
+@router.get("/user/result/{user_id}/mean")
+async def get_user_mean_score(user_id: int, db: AsyncSession = Depends(get_db)):
+    """Return the mean (average) score for the given user_id across all their results. (as percentage)"""
+    try:
+        # Use SQL aggregation to compute average and count
+        stmt = select(
+            func.avg(UserTestResult.score), func.count(UserTestResult.id)
+        ).where(UserTestResult.user_id == user_id)
+        res = await db.execute(stmt)
+        avg_score, cnt = res.fetchone() or (None, 0)
+
+        # Normalize types
+        mean_score = float(avg_score) if (avg_score is not None) else None
+        count = int(cnt or 0)
+
+        return {"user_id": user_id, "mean_score": mean_score, "count": count}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to compute mean score: {e}"
+        )
 
 
 @router.delete("/user/{user_id}/{result_id}", status_code=status.HTTP_204_NO_CONTENT)
