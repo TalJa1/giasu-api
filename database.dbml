@@ -1,24 +1,19 @@
-// Database for GiaSu API - Learning Management System
+// Database for GiaSu API - Schema derived from script.sql
 Project GiaSu_LMS {
   database_type: 'SQLite'
   Note: '''
-    GiaSu Learning Management System Database
-  Supports users, lessons, lesson tracking, tests with detailed answer tracking, and university recommendations
+    Database schema matching script.sql: users, lessons, tests, test questions, user test results, user question answers, universities, university scores, user preferences, recommendations, lesson tracking, quizlet
   '''
 }
 
-// Users table - Core user management
 Table Users {
   id integer [primary key, increment]
   username text [not null, unique]
   email text [not null, unique]
   image_url text
-  role text [default: 'student', note: "'student' or 'tutor'"]
-  
-  Note: 'Core user management table storing authentication and profile data'
+  role text [default: 'student']
 }
 
-// Lessons table - Documents, flashcards, videos and other lesson content
 Table Lessons {
   id integer [primary key, increment]
   title text [not null]
@@ -28,34 +23,17 @@ Table Lessons {
   content_url text
   created_by integer [ref: > Users.id]
   created_at datetime [default: `CURRENT_TIMESTAMP`]
-
-  Note: 'Stores lesson materials including documents, flashcards, and multimedia created by users'
 }
 
-// LessonTracking table - tracks user progress on lessons
-Table LessonTracking {
-  id integer [primary key, increment]
-  user_id integer [not null, ref: > Users.id]
-  lesson_id integer [not null, ref: > Lessons.id]
-  is_finished boolean [default: false]
-  created_at datetime [default: `CURRENT_TIMESTAMP`]
-
-  Note: 'Tracks user progress, status, and timestamps for individual lessons'
-}
-
-// Tests table - Quiz/Test definitions
 Table Tests {
   id integer [primary key, increment]
   title text [not null]
   description text
   created_by integer [ref: > Users.id]
   created_at datetime [default: `CURRENT_TIMESTAMP`]
-  supports_multiple_answers boolean [default: false, note: 'If true, this test may include questions that allow multiple answers']
-  
-  Note: 'Test and quiz definitions that can be created by users'
+  supports_multiple_answers boolean [default: false]
 }
 
-// Test Questions table - Individual questions for tests
 Table TestQuestions {
   id integer [primary key, increment]
   test_id integer [not null, ref: > Tests.id]
@@ -64,14 +42,11 @@ Table TestQuestions {
   option_b text
   option_c text
   option_d text
-  question_type text [default: 'single', note: "'single' or 'multiple'"]
-  correct_options text [note: 'One or more correct choices. Use JSON array or comma-separated letters, e.g. ["A"] or A,B']
+  question_type text [default: 'single']
+  correct_options text
   points real [default: 1.0]
-
-  Note: 'Multiple choice questions for tests with 4 options. Supports single and multiple correct answers and per-question points'
 }
 
-// User Test Results table - Overall test session tracking
 Table UserTestResults {
   id integer [primary key, increment]
   user_id integer [not null, ref: > Users.id]
@@ -82,35 +57,26 @@ Table UserTestResults {
   points_earned real [default: 0.0]
   points_possible real [default: 0.0]
   taken_at datetime [default: `CURRENT_TIMESTAMP`]
-  
-  Note: 'Records of user test attempts with overall scores and statistics'
 }
 
-// User Question Answers table - Individual question responses for detailed review
 Table UserQuestionAnswers {
   id integer [primary key, increment]
   test_result_id integer [not null, ref: > UserTestResults.id]
   question_id integer [not null, ref: > TestQuestions.id]
-  user_answer text [note: 'User answer(s). Can be single like A or JSON/CSV for multiple: ["A","C"] or A,C']
+  user_answer text
   is_correct boolean [default: false]
   partial_credit real [default: 0.0]
   answered_at datetime [default: `CURRENT_TIMESTAMP`]
-  
-  Note: 'Stores individual question answers for comprehensive test review. Supports multiple selected answers and partial credit'
 }
 
-// Universities table - University master data
 Table Universities {
   id integer [primary key, increment]
   name text [not null]
   location text
   type text
   description text
-  
-  Note: 'Master list of universities available for recommendations'
 }
 
-// University Scores table - Historical admission data
 Table UniversityScores {
   id integer [primary key, increment]
   university_id integer [not null, ref: > Universities.id]
@@ -118,11 +84,8 @@ Table UniversityScores {
   min_score real
   avg_score real
   max_score real
-  
-  Note: 'Historical admission scores by year for each university to help with recommendations'
 }
 
-// User Preferences table - University recommendation preferences
 Table UserPreferences {
   id integer [primary key, increment]
   user_id integer [not null, ref: > Users.id]
@@ -130,66 +93,42 @@ Table UserPreferences {
   current_score real
   expected_score real
   created_at datetime [default: `CURRENT_TIMESTAMP`]
-  
-  Note: 'User preferences for personalized university recommendations'
 }
 
-// University Recommendations table - System generated recommendations
 Table UniversityRecommendations {
   id integer [primary key, increment]
   user_id integer [not null, ref: > Users.id]
   university_id integer [not null, ref: > Universities.id]
   recommended_at datetime [default: `CURRENT_TIMESTAMP`]
-  
-  Note: 'System-generated university recommendations based on user preferences and scores'
 }
 
-// Relationships visualization
-Ref: Tests.created_by > Users.id [delete: set null]
-Ref: TestQuestions.test_id > Tests.id [delete: cascade]
-Ref: UserTestResults.user_id > Users.id [delete: cascade]
-Ref: UserTestResults.test_id > Tests.id [delete: cascade]
-Ref: UserQuestionAnswers.test_result_id > UserTestResults.id [delete: cascade]
-Ref: UserQuestionAnswers.question_id > TestQuestions.id [delete: cascade]
-Ref: UniversityScores.university_id > Universities.id [delete: cascade]
-Ref: UserPreferences.user_id > Users.id [delete: cascade]
-Ref: UniversityRecommendations.user_id > Users.id [delete: cascade]
-Ref: UniversityRecommendations.university_id > Universities.id [delete: cascade]
-Ref: LessonTracking.user_id > Users.id [delete: cascade]
-Ref: LessonTracking.lesson_id > Lessons.id [delete: cascade]
-Ref: Lessons.created_by > Users.id [delete: set null]
+Table LessonTracking {
+  id integer [primary key, increment]
+  user_id integer [not null, ref: > Users.id]
+  lesson_id integer [not null, ref: > Lessons.id]
+  is_finished boolean [default: false]
+  created_at datetime [default: `CURRENT_TIMESTAMP`]
+}
 
-// Quizlet table - simple Q&A flashcards linked to lessons
 Table Quizlet {
   id integer [primary key, increment]
   lesson_id integer [not null, ref: > Lessons.id]
   question text [not null]
   answer text [not null]
   created_at datetime [default: `CURRENT_TIMESTAMP`]
-
-  Note: 'Simple flashcard-style question and answer pairs connected to a lesson'
 }
 
-Ref: Quizlet.lesson_id > Lessons.id [delete: cascade]
-
-// Table Groups for logical organization
-TableGroup user_management {
-  Users
-  UserPreferences
-}
-
-TableGroup learning_content {
-  Lessons
-  LessonTracking
-  Quizlet
-  Tests
-  TestQuestions
-  UserTestResults
-  UserQuestionAnswers
-}
-
-TableGroup university_system {
-  Universities
-  UniversityScores
-  UniversityRecommendations
-}
+// Relationships (foreign keys)
+Ref: Lessons.created_by > Users.id
+Ref: TestQuestions.test_id > Tests.id
+Ref: UserTestResults.user_id > Users.id
+Ref: UserTestResults.test_id > Tests.id
+Ref: UserQuestionAnswers.test_result_id > UserTestResults.id
+Ref: UserQuestionAnswers.question_id > TestQuestions.id
+Ref: UniversityScores.university_id > Universities.id
+Ref: UserPreferences.user_id > Users.id
+Ref: UniversityRecommendations.user_id > Users.id
+Ref: UniversityRecommendations.university_id > Universities.id
+Ref: LessonTracking.user_id > Users.id
+Ref: LessonTracking.lesson_id > Lessons.id
+Ref: Quizlet.lesson_id > Lessons.id
