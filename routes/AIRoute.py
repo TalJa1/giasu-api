@@ -21,7 +21,7 @@ class AIGenerateRequest(BaseModel):
 
 class AIGenerateResponse(BaseModel):
     output: str
-    raw: Dict[str, Any]
+    model: Optional[str] = None
 
 
 class UniRequest(BaseModel):
@@ -131,6 +131,126 @@ def _clean_json_text(text: str) -> Optional[str]:
     return None
 
 
+def _extract_model_name_from_data(data: Any) -> Optional[str]:
+    if isinstance(data, dict):
+        # common top-level fields
+        for k in ("model", "model_name", "modelId", "model_id", "modelName"):
+            if k in data and data[k]:
+                return str(data[k])
+
+        # metadata object
+        md = data.get("metadata") if isinstance(data.get("metadata"), dict) else None
+        if md:
+            for k in ("model", "model_name", "modelId", "model_id", "modelName"):
+                if k in md and md[k]:
+                    return str(md[k])
+
+        # candidates may include model info
+        if (
+            "candidates" in data
+            and isinstance(data["candidates"], list)
+            and data["candidates"]
+        ):
+            return _extract_model_name_from_data(data["candidates"][0])
+
+    return None
+
+
+def _extract_token_count_from_data(data: Any) -> Optional[int]:
+    # Try several common fields used by providers for token/usage counts
+    if isinstance(data, dict):
+        # common usage object
+        usage = data.get("usage") or data.get("token_usage") or data.get("tokenUsage")
+        if isinstance(usage, dict):
+            # prefer total_tokens, else sum prompt/completion
+            if "total_tokens" in usage and isinstance(usage["total_tokens"], int):
+                return usage["total_tokens"]
+            pt = usage.get("prompt_tokens")
+            ct = usage.get("completion_tokens") or usage.get("response_tokens")
+            if isinstance(pt, int) or isinstance(ct, int):
+                try:
+                    return int((pt or 0) + (ct or 0))
+                except Exception:
+                    pass
+
+        # top-level token count fields
+        for k in ("tokenCount", "token_count", "tokens", "token_count_total"):
+            v = data.get(k)
+            if isinstance(v, int):
+                return v
+            try:
+                if isinstance(v, str) and v.isdigit():
+                    return int(v)
+            except Exception:
+                pass
+
+        # candidates
+        if (
+            "candidates" in data
+            and isinstance(data["candidates"], list)
+            and data["candidates"]
+        ):
+            return _extract_token_count_from_data(data["candidates"][0])
+
+    return None
+
+
+def _extract_requests_left_from_headers_or_data(
+    headers: Dict[str, Any], data: Any
+) -> Optional[int]:
+    # Check common rate-limit header names
+    if headers:
+        for hk in (
+            "x-rate-limit-remaining",
+            "x-ratelimit-remaining",
+            "ratelimit-remaining",
+            "x-requests-remaining",
+            "x-request-quota-remaining",
+        ):
+            if hk in headers:
+                try:
+                    return int(headers[hk])
+                except Exception:
+                    try:
+                        return int(str(headers[hk]))
+                    except Exception:
+                        pass
+
+    # Fallback to body fields
+    if isinstance(data, dict):
+        for k in (
+            "requestsLeft",
+            "requests_left",
+            "remainingRequests",
+            "remaining_requests",
+            "quota_remaining",
+        ):
+            v = data.get(k)
+            if isinstance(v, int):
+                return v
+            try:
+                if isinstance(v, str) and v.isdigit():
+                    return int(v)
+            except Exception:
+                pass
+
+    return None
+
+
+def get_gemini_config() -> Dict[str, Optional[str]]:
+    """Return a small dict with GEMINI_API_KEY, GEMINI_API_URL and GEMINI_MODEL (if set).
+
+    This centralizes model selection so multiple routes use the same API URL/model.
+    """
+    api_key = os.getenv("GEMINI_API_KEY")
+    api_url = os.getenv(
+        "GEMINI_API_URL",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent",
+    )
+    model_env = os.getenv("GEMINI_MODEL")
+    return {"api_key": api_key, "api_url": api_url, "model_env": model_env}
+
+
 @router.post("/generate", response_model=AIGenerateResponse)
 async def generate_text(
     req: AIGenerateRequest,
@@ -146,11 +266,9 @@ async def generate_text(
     """
 
     # Use only configured API key and URL from environment (no per-request auth)
-    api_key = os.getenv("GEMINI_API_KEY")
-    api_url = os.getenv(
-        "GEMINI_API_URL",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-    )
+    cfg = get_gemini_config()
+    api_key = cfg.get("api_key")
+    api_url = cfg.get("api_url")
 
     if not api_key or not api_url:
         raise HTTPException(
@@ -173,11 +291,11 @@ async def generate_text(
     # different limit or make it configurable via an environment variable.
     try:
         async with httpx.AsyncClient(timeout=600.0) as client:
-            # stream the response to avoid loading massive bodies into memory at once
             async with client.stream(
                 "POST", api_url, json=payload, headers=headers
             ) as resp:
                 status_code = resp.status_code
+                resp_headers = {k.lower(): v for k, v in resp.headers.items()}
                 if status_code >= 400:
                     text = await resp.aread()
                     try:
@@ -190,7 +308,6 @@ async def generate_text(
                         status_code=status_code, detail={"upstream": body}
                     )
 
-                # read the downstream response body fully (streamed) but allow very large content
                 raw_bytes = await resp.aread()
                 try:
                     data = httpx.Response(
@@ -200,11 +317,15 @@ async def generate_text(
                     data = {"raw_text": raw_bytes.decode(errors="replace")}
     except httpx.HTTPError as e:
         raise HTTPException(status_code=502, detail=f"Upstream request failed: {e}")
-    # 'data' now contains parsed JSON or a raw_text fallback
 
-    # Extract text using robust extractor
-    text_out = extract_text(data)
-    return {"output": text_out, "raw": data}
+    # Build minimal response
+    output_text = extract_text(data)
+    model_name = _extract_model_name_from_data(data) or cfg.get("model_env") or api_url
+
+    return {
+        "output": output_text,
+        "model": model_name,
+    }
 
 
 async def _call_gemini_with_prompt(prompt: str) -> Dict[str, Any]:
@@ -212,11 +333,9 @@ async def _call_gemini_with_prompt(prompt: str) -> Dict[str, Any]:
 
     Returns the parsed JSON or {'raw_text': ...} fallback.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    api_url = os.getenv(
-        "GEMINI_API_URL",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-    )
+    cfg = get_gemini_config()
+    api_key = cfg.get("api_key")
+    api_url = cfg.get("api_url")
     if not api_key or not api_url:
         raise HTTPException(status_code=500, detail="AI config missing")
 
